@@ -8,13 +8,21 @@
  * @module
  */
 
+import type * as dailyBias from "../dailyBias.js";
+import type * as trades from "../trades.js";
+import type * as weeklyReviews from "../weeklyReviews.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  dailyBias: typeof dailyBias;
+  trades: typeof trades;
+  weeklyReviews: typeof weeklyReviews;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
