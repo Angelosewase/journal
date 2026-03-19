@@ -1,17 +1,21 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "@/convex/_generated/api";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Download, Upload, Info, TrendingUp, Target, Clock, Layers } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const allData = useQuery(api.trades.getAllData);
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleExport = () => {
     try {
       if (!allData) {
-        setStatus({ type: "error", message: "Data not loaded yet" });
+        toast.error("Data not loaded yet");
         return;
       }
       const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
@@ -23,11 +27,10 @@ export default function SettingsPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setStatus({ type: "success", message: "Data exported successfully!" });
+      toast.success("Data exported successfully!");
     } catch {
-      setStatus({ type: "error", message: "Failed to export data" });
+      toast.error("Failed to export data");
     }
-    setTimeout(() => setStatus(null), 3000);
   };
 
   const handleImport = () => {
@@ -46,11 +49,10 @@ export default function SettingsPage() {
           throw new Error("Invalid backup file format");
         }
         
-        setStatus({ type: "success", message: "Import functionality coming soon! Use this file to restore your data." });
+        toast.success("Import functionality coming soon! Use this file to restore your data.");
       } catch {
-        setStatus({ type: "error", message: "Invalid backup file" });
+        toast.error("Invalid backup file");
       }
-      setTimeout(() => setStatus(null), 5000);
     };
     input.click();
   };
@@ -58,110 +60,100 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Settings</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">
           Manage your journal data and preferences
         </p>
       </div>
 
-      {status && (
-        <div
-          className={`p-4 rounded-lg ${
-            status.type === "success"
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-              : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-          }`}
-        >
-          {status.message}
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          Data Management
-        </h3>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-          Export your trading journal data for backup or import previous backups to restore your data.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            onClick={handleExport}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
-          >
-            <DownloadIcon />
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Management</CardTitle>
+          <CardDescription>
+            Export your trading journal data for backup or import previous backups to restore your data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-4">
+          <Button onClick={handleExport} className="gap-2">
+            <Download className="h-4 w-4" />
             Export All Data
-          </button>
-          <button
-            onClick={handleImport}
-            className="flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-          >
-            <UploadIcon />
+          </Button>
+          <Button variant="outline" onClick={handleImport} className="gap-2">
+            <Upload className="h-4 w-4" />
             Import Backup
-          </button>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          About WWA Trading Journal
-        </h3>
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <p>Version 1.0.0</p>
-          <p>
+      <Card>
+        <CardHeader>
+          <CardTitle>About WWA Trading Journal</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-muted-foreground" />
+            <p className="font-medium">Version 1.0.0</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
             A personal trading journal built for the WWA (Waqar Asim) Trading Strategy.
             Track your trades, analyze your performance, and improve your discipline.
           </p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          Key WWA Concepts
-        </h3>
-        <div className="grid md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="font-medium text-zinc-700 dark:text-zinc-300">DATE Framework</p>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              Direction → Area of Interest → Traps → Entry
-            </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Key WWA Concepts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex gap-4">
+              <div className="p-2 h-fit rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="font-medium">DATE Framework</p>
+                <p className="text-sm text-muted-foreground">
+                  Direction → Area of Interest → Traps → Entry
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="p-2 h-fit rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="font-medium">The Trinity</p>
+                <p className="text-sm text-muted-foreground">
+                  Inducement + LTC Confirmation + Killzone
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="p-2 h-fit rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                <Layers className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="font-medium">POI Types</p>
+                <p className="text-sm text-muted-foreground">
+                  Extreme POI (origin) and Decisional POI (last pullback)
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="p-2 h-fit rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="font-medium">Killzones</p>
+                <p className="text-sm text-muted-foreground">
+                  London Open (07:00-10:00 UTC) / NY Open (12:00-15:00 UTC)
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-zinc-700 dark:text-zinc-300">The Trinity</p>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              Inducement + LTC Confirmation + Killzone
-            </p>
-          </div>
-          <div>
-            <p className="font-medium text-zinc-700 dark:text-zinc-300">POI Types</p>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              Extreme POI (origin) and Decisional POI (last pullback)
-            </p>
-          </div>
-          <div>
-            <p className="font-medium text-zinc-700 dark:text-zinc-300">Killzones</p>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              London Open (07:00-10:00 UTC) / NY Open (12:00-15:00 UTC)
-            </p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-    </svg>
   );
 }

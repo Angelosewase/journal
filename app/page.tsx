@@ -2,14 +2,18 @@
 
 import { useQuery } from "convex/react";
 import { useState } from "react";
-import { TradeForm } from "@/components/TradeForm";
-import { DailyBiasForm } from "@/components/DailyBiasForm";
 import { api } from "@/convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Plus, TrendingUp, TrendingDown, Minus, Sun } from "lucide-react";
+import Link from "next/link";
+import { DailyBiasForm } from "@/components/DailyBiasForm";
 
 export default function TodayPage() {
   const trades = useQuery(api.trades.list);
   const dailyBiases = useQuery(api.dailyBias.list);
-  const [showTradeForm, setShowTradeForm] = useState(false);
   const [showBiasForm, setShowBiasForm] = useState(false);
   const [showEveningReview, setShowEveningReview] = useState(false);
 
@@ -19,12 +23,25 @@ export default function TodayPage() {
     (t) => new Date(t.createdAt).toISOString().split("T")[0] === today
   );
 
+  const todayPnl = todayTrades?.reduce((sum, t) => sum + (t.pnl || 0), 0) || 0;
+
+  const getBiasIcon = (bias: string) => {
+    switch (bias) {
+      case "BULLISH":
+        return <TrendingUp className="h-4 w-4" />;
+      case "BEARISH":
+        return <TrendingDown className="h-4 w-4" />;
+      default:
+        return <Minus className="h-4 w-4" />;
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Today</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
+          <p className="text-sm text-muted-foreground">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               year: "numeric",
@@ -33,182 +50,220 @@ export default function TodayPage() {
             })}
           </p>
         </div>
-        <button
-          onClick={() => setShowTradeForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900 rounded-lg text-sm font-medium hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
-        >
-          <PlusIcon />
-          Add Trade
-        </button>
+        <Button asChild>
+          <Link href="/trades/new" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Trade
+          </Link>
+        </Button>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          Morning Bias
-        </h2>
-        {todayBias ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  todayBias.currentDailyBias === "BULLISH"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : todayBias.currentDailyBias === "BEARISH"
-                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                    : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                }`}
-              >
-                {todayBias.currentDailyBias}
-              </span>
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                Confidence: {todayBias.biasConfidence}/10
-              </span>
-            </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">{todayBias.biasReason}</p>
-            <div className="flex gap-4 text-sm text-zinc-500 dark:text-zinc-400">
-              <span>Session: {todayBias.sessionToTrade}</span>
-              <span>Model: {todayBias.modelToFocus}</span>
-              <span>Confidence: {todayBias.confidenceForToday}/10</span>
-            </div>
-            <button
-              onClick={() => setShowBiasForm(true)}
-              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
-            >
-              Edit Morning Bias
-            </button>
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              No morning bias set for today yet.
-            </p>
-            <button
-              onClick={() => setShowBiasForm(true)}
-              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
-            >
-              Set Morning Bias
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
-            Today&apos;s Trades
-          </h2>
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {todayTrades?.length || 0} trade{(todayTrades?.length || 0) !== 1 ? "s" : ""}
-          </span>
+      {todayTrades && todayTrades.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Trades Today</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{todayTrades.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {todayTrades.filter(t => t.winLossStatus === "WIN").length}W / {todayTrades.filter(t => t.winLossStatus === "LOSS").length}L
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">P&L Today</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${todayPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                ${todayPnl.toFixed(2)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Morning Bias</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Badge variant={todayBias?.currentDailyBias === "BULLISH" ? "default" : todayBias?.currentDailyBias === "BEARISH" ? "destructive" : "secondary"} className="gap-1">
+                {getBiasIcon(todayBias?.currentDailyBias || "NEUTRAL")}
+                {todayBias?.currentDailyBias || "Not Set"}
+              </Badge>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Session Focus</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-medium">{todayBias?.sessionToTrade || "Not Set"}</div>
+              <p className="text-xs text-muted-foreground">
+                {todayBias?.modelToFocus || "Not Set"}
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        {todayTrades && todayTrades.length > 0 ? (
-          <div className="space-y-3">
-            {todayTrades.map((trade) => (
-              <div
-                key={trade._id}
-                className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg"
-              >
-                <div className="flex items-center gap-4">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      trade.direction === "LONG"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                    }`}
-                  >
-                    {trade.direction}
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sun className="h-5 w-5 text-amber-500" />
+                <CardTitle>Morning Bias</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowBiasForm(true)}>
+                {todayBias ? "Edit" : "Set"}
+              </Button>
+            </div>
+            <CardDescription>Your pre-market analysis and trading plan</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {todayBias ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Badge variant={todayBias.currentDailyBias === "BULLISH" ? "default" : todayBias.currentDailyBias === "BEARISH" ? "destructive" : "secondary"} className="text-sm px-3 py-1">
+                    {getBiasIcon(todayBias.currentDailyBias)}
+                    {todayBias.currentDailyBias}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Confidence: {todayBias.biasConfidence}/10
                   </span>
+                </div>
+                <p className="text-sm">{todayBias.biasReason}</p>
+                <Separator />
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                      {trade.instrument}
+                    <p className="text-muted-foreground">Session</p>
+                    <p className="font-medium">{todayBias.sessionToTrade}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Model</p>
+                    <p className="font-medium">{todayBias.modelToFocus}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Instrument</p>
+                    <p className="font-medium">{todayBias.bestInstrument || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Confidence</p>
+                    <p className="font-medium">{todayBias.confidenceForToday}/10</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-muted-foreground mb-4">No morning bias set for today yet.</p>
+                <Button variant="outline" onClick={() => setShowBiasForm(true)}>
+                  Set Morning Bias
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Evening Review</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowEveningReview(true)}>
+                {todayBias?.actualMovement ? "Edit" : "Complete"}
+              </Button>
+            </div>
+            <CardDescription>Post-market analysis and lessons learned</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {todayBias?.actualMovement ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Morning Bias</p>
+                    <p className="font-medium">{todayBias.currentDailyBias}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Actual</p>
+                    <p className="font-medium">{todayBias.actualMovement}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Accuracy</p>
+                    <p className="font-medium">{todayBias.wasCorrect} ({todayBias.accuracyScore}/10)</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Discipline</p>
+                    <p className="font-medium">{todayBias.overallDiscipline}/10</p>
+                  </div>
+                </div>
+                {todayBias.tradesTaken && (
+                  <>
+                    <Separator />
+                    <div className="text-sm">
+                      <p className="text-muted-foreground">Trades: {todayBias.tradesWorked} worked / {todayBias.tradesFailed} failed</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-muted-foreground mb-4">Complete your evening review to analyze today&apos;s performance.</p>
+                <Button variant="outline" onClick={() => setShowEveningReview(true)}>
+                  Complete Evening Review
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Today&apos;s Trades</CardTitle>
+          <CardDescription>
+            {todayTrades?.length || 0} trade{(todayTrades?.length || 0) !== 1 ? "s" : ""} recorded
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {todayTrades && todayTrades.length > 0 ? (
+            <div className="space-y-3">
+              {todayTrades.map((trade) => (
+                <div
+                  key={trade._id}
+                  className="flex items-center justify-between p-4 rounded-lg border"
+                >
+                  <div className="flex items-center gap-4">
+                    <Badge variant={trade.direction === "LONG" ? "default" : "destructive"} className={trade.direction === "LONG" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-red-100 text-red-700 hover:bg-red-100"}>
+                      {trade.direction}
+                    </Badge>
+                    <div>
+                      <p className="font-medium">{trade.instrument}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Entry: {trade.entryPrice} | SL: {trade.stopLossPrice}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-semibold ${(trade.pnl || 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      {trade.pnl !== undefined ? `$${trade.pnl.toFixed(2)}` : "Open"}
                     </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Entry: {trade.entryPrice} | SL: {trade.stopLossPrice}
+                    <p className="text-sm text-muted-foreground">
+                      {trade.winLossStatus || "Pending"}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p
-                    className={`text-sm font-medium ${
-                      (trade.pnl || 0) >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {trade.pnl !== undefined ? `$${trade.pnl.toFixed(2)}` : "Open"}
-                  </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {trade.winLossStatus || "Pending"}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            No trades recorded today.
-          </p>
-        )}
-      </div>
-
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          Evening Review
-        </h2>
-        {todayBias?.actualMovement ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Morning Bias</p>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {todayBias.currentDailyBias}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Actual Movement</p>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {todayBias.actualMovement}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Accuracy</p>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {todayBias.wasCorrect} ({todayBias.accuracyScore}/10)
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Discipline</p>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {todayBias.overallDiscipline}/10
-                </p>
-              </div>
+              ))}
             </div>
-            <button
-              onClick={() => setShowEveningReview(true)}
-              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
-            >
-              Edit Evening Review
-            </button>
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              Complete your evening review to analyze today&apos;s performance.
-            </p>
-            <button
-              onClick={() => setShowEveningReview(true)}
-              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
-            >
-              Complete Evening Review
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">No trades recorded today.</p>
+              <Button asChild>
+                <Link href="/trades/new">Log Your First Trade</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {showTradeForm && (
-        <TradeForm onClose={() => setShowTradeForm(false)} />
-      )}
-      
       {(showBiasForm || showEveningReview) && (
         <DailyBiasForm
           onClose={() => {
@@ -219,13 +274,5 @@ export default function TodayPage() {
         />
       )}
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-    </svg>
   );
 }

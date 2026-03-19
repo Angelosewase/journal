@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Nunito_Sans } from "next/font/google";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { HorizontalNav } from "@/components/HorizontalNav";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
-import { Navigation } from "@/components/Navigation";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const nunitoSans = Nunito_Sans({variable:'--font-sans'});
+const nunitoSans = Nunito_Sans({ variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,21 +30,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", nunitoSans.variable)}
-    >
-      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-zinc-950">
-        <ConvexClientProvider>
-          <div className="flex flex-1">
-            <Navigation />
-            <main className="flex-1 p-6 lg:p-8">
-              <div className="max-w-6xl mx-auto">
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(
+        "min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans antialiased",
+        geistSans.variable,
+        geistMono.variable,
+        nunitoSans.variable
+      )}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ConvexClientProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <HorizontalNav />
+              <main className="flex-1 container py-6 px-4 max-w-7xl mx-auto">
                 {children}
-              </div>
-            </main>
-          </div>
-        </ConvexClientProvider>
+              </main>
+            </div>
+            <Toaster />
+          </ConvexClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

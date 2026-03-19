@@ -1,8 +1,14 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "@/convex/_generated/api";
 import { useState, useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Filter, TrendingUp, TrendingDown, Target, Award, Scale, Activity } from "lucide-react";
 
 const instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
 const sessions = ["ASIA", "LONDON", "NEW_YORK", "OTHER"];
@@ -28,7 +34,7 @@ export default function StatisticsPage() {
       if (filters.session && trade.session !== filters.session) return false;
       if (filters.tradeModel && trade.tradeModel !== filters.tradeModel) return false;
       if (filters.startDate && new Date(trade.createdAt) < new Date(filters.startDate)) return false;
-      if (filters.endDate && new Date(trade.createdAt) > new Date(filters.endDate)) return false;
+      if (filters.endDate && new Date(trade.createdAt) > new Date(filters.endDate + "T23:59:59")) return false;
       return true;
     });
   }, [trades, filters]);
@@ -136,228 +142,261 @@ export default function StatisticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Statistics</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Statistics</h1>
+        <p className="text-sm text-muted-foreground">
           Track your trading performance and WWA compliance
         </p>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <FilterIcon />
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Filters</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <select
-            value={filters.environment}
-            onChange={(e) => setFilters({ ...filters, environment: e.target.value })}
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          >
-            <option value="">Environment</option>
-            {environments.map((env) => (
-              <option key={env} value={env}>{env}</option>
-            ))}
-          </select>
-          <select
-            value={filters.instrument}
-            onChange={(e) => setFilters({ ...filters, instrument: e.target.value })}
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          >
-            <option value="">Instrument</option>
-            {instruments.map((inst) => (
-              <option key={inst} value={inst}>{inst}</option>
-            ))}
-          </select>
-          <select
-            value={filters.session}
-            onChange={(e) => setFilters({ ...filters, session: e.target.value })}
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          >
-            <option value="">Session</option>
-            {sessions.map((sess) => (
-              <option key={sess} value={sess}>{sess}</option>
-            ))}
-          </select>
-          <select
-            value={filters.tradeModel}
-            onChange={(e) => setFilters({ ...filters, tradeModel: e.target.value })}
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          >
-            <option value="">Model</option>
-            {models.map((model) => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            placeholder="Start date"
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            placeholder="End date"
-            className="px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          />
-        </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base font-medium">Filters</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Environment</Label>
+              <Select value={filters.environment} onValueChange={(v) => setFilters({ ...filters, environment: v })}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  {environments.map((env) => (
+                    <SelectItem key={env} value={env}>{env}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Instrument</Label>
+              <Select value={filters.instrument} onValueChange={(v) => setFilters({ ...filters, instrument: v })}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  {instruments.map((inst) => (
+                    <SelectItem key={inst} value={inst}>{inst}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Session</Label>
+              <Select value={filters.session} onValueChange={(v) => setFilters({ ...filters, session: v })}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  {sessions.map((sess) => (
+                    <SelectItem key={sess} value={sess}>{sess}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Model</Label>
+              <Select value={filters.tradeModel} onValueChange={(v) => setFilters({ ...filters, tradeModel: v })}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model} value={model}>{model}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">From Date</Label>
+              <Input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">To Date</Label>
+              <Input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                className="h-8"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Trades</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalTrades}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.winningTrades}W / {stats.losingTrades}L / {stats.breakEvenTrades}BE
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.winRate.toFixed(1)}%</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total P&L</CardTitle>
+            {stats.totalPnl >= 0 ? (
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-600" />
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.totalPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+              ${stats.totalPnl.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Quality</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgQuality.toFixed(1)}/10</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Profit Factor</CardTitle>
+            <Scale className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.profitFactor.toFixed(2)}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Total Trades</p>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.totalTrades}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Win Rate</p>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.winRate.toFixed(1)}%
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Total P&L</p>
-          <p className={`text-3xl font-bold mt-1 ${
-            stats.totalPnl >= 0
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400"
-          }`}>
-            ${stats.totalPnl.toFixed(2)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Avg Quality</p>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.avgQuality.toFixed(1)}/10
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Profit Factor</p>
-          <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.profitFactor.toFixed(2)}
-          </p>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg Trinity Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgTrinityScore.toFixed(1)}/10</div>
+            <p className="text-xs text-muted-foreground">Inducement + LTC + Killzone</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg Discipline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgDisciplineScore.toFixed(1)}/10</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg Win</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">${stats.avgWin.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Avg Loss</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">${stats.avgLoss.toFixed(2)}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Avg Trinity Score</p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.avgTrinityScore.toFixed(1)}/10
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Avg Discipline</p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats.avgDisciplineScore.toFixed(1)}/10
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Avg Win</p>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-            ${stats.avgWin.toFixed(2)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Avg Loss</p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
-            ${stats.avgLoss.toFixed(2)}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-            Performance by Model
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">Continuation</span>
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance by Model</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <span className="font-medium">Continuation</span>
+              <span className="text-sm text-muted-foreground">
                 {stats.continuationModel.total} trades | {stats.continuationModel.winRate.toFixed(1)}% WR | Q: {stats.continuationModel.avgQuality.toFixed(1)}/10
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">Reversal</span>
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <span className="font-medium">Reversal</span>
+              <span className="text-sm text-muted-foreground">
                 {stats.reversalModel.total} trades | {stats.reversalModel.winRate.toFixed(1)}% WR | Q: {stats.reversalModel.avgQuality.toFixed(1)}/10
               </span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-            Performance by Session
-          </h3>
-          <div className="space-y-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance by Session</CardTitle>
+          </CardHeader>
+          <CardContent>
             {stats.bySession.length > 0 ? (
-              stats.bySession.map((s) => (
-                <div key={s.session} className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">{s.session}</span>
-                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    {s.count} trades | {s.winRate.toFixed(1)}% WR | Q: {s.avgQuality.toFixed(1)}/10
-                  </span>
-                </div>
-              ))
+              <div className="space-y-2">
+                {stats.bySession.map((s) => (
+                  <div key={s.session} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <span className="font-medium">{s.session}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {s.count} trades | {s.winRate.toFixed(1)}% WR | Q: {s.avgQuality.toFixed(1)}/10
+                    </span>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">No data available</p>
+              <p className="text-center py-8 text-muted-foreground">No data available</p>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-50 mb-4">
-          Performance by Instrument
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Instrument</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Trades</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Win Rate</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Total P&L</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance by Instrument</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Instrument</TableHead>
+                <TableHead className="text-right">Trades</TableHead>
+                <TableHead className="text-right">Win Rate</TableHead>
+                <TableHead className="text-right">Total P&L</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {stats.byInstrument.length > 0 ? (
                 stats.byInstrument.map((i) => (
-                  <tr key={i.instrument} className="border-b border-zinc-100 dark:border-zinc-800">
-                    <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-50">{i.instrument}</td>
-                    <td className="px-4 py-3 text-sm text-right text-zinc-600 dark:text-zinc-400">{i.count}</td>
-                    <td className="px-4 py-3 text-sm text-right text-zinc-600 dark:text-zinc-400">{i.winRate.toFixed(1)}%</td>
-                    <td className={`px-4 py-3 text-sm text-right font-medium ${
-                      i.pnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                    }`}>
+                  <TableRow key={i.instrument}>
+                    <TableCell className="font-medium">{i.instrument}</TableCell>
+                    <TableCell className="text-right">{i.count}</TableCell>
+                    <TableCell className="text-right">{i.winRate.toFixed(1)}%</TableCell>
+                    <TableCell className={`text-right font-medium ${i.pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                       ${i.pnl.toFixed(2)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No data available
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-    </svg>
   );
 }
