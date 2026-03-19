@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Calendar,
+  CalendarDays,
   ClipboardList,
   BarChart3,
   Settings,
@@ -26,6 +27,7 @@ import {
 
 const navItems = [
   { href: "/", label: "Today", icon: Calendar },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/trades", label: "Trade Log", icon: ClipboardList },
   { href: "/weekly", label: "Weekly", icon: BarChart3 },
   { href: "/statistics", label: "Statistics", icon: TrendingUp },
