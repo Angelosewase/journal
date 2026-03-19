@@ -4,140 +4,289 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { WeeklyReviewForm } from "@/components/WeeklyReviewForm";
-import { WeeklyReviewDetail } from "@/components/WeeklyReviewDetail";
-import { Plus, Calendar, TrendingUp, TrendingDown, Target } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function WeeklyPage() {
   const weeklyReviews = useQuery(api.weeklyReviews.list);
-  const [selectedReview, setSelectedReview] = useState<string | null>(null);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-
-  const selectedReviewData = weeklyReviews?.find((r) => r._id === selectedReview);
+  const [selectedYear, setSelectedYear] = useState("all");
 
   const sortedReviews = useMemo(() => {
     if (!weeklyReviews) return [];
-    return [...weeklyReviews].sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+    return [...weeklyReviews].sort((a, b) =>
+      b.weekStart.localeCompare(a.weekStart),
+    );
   }, [weeklyReviews]);
+
+  const years = useMemo(() => {
+    const yearSet = new Set<string>();
+    sortedReviews.forEach((r) => yearSet.add(r.weekStart.substring(0, 4)));
+    return Array.from(yearSet).sort((a, b) => b.localeCompare(a));
+  }, [sortedReviews]);
+
+  const filteredReviews = useMemo(() => {
+    if (selectedYear === "all") return sortedReviews;
+    return sortedReviews.filter((r) => r.weekStart.startsWith(selectedYear));
+  }, [sortedReviews, selectedYear]);
+
+  const summary = useMemo(() => {
+    if (filteredReviews.length === 0) return null;
+    const totalTrades = filteredReviews.reduce(
+      (sum, r) => sum + r.totalTrades,
+      0,
+    );
+    const totalPnl = filteredReviews.reduce((sum, r) => sum + r.totalPnl, 0);
+    const avgWinRate =
+      filteredReviews.reduce((sum, r) => {
+        const wr =
+          r.totalTrades > 0 ? (r.winningTrades / r.totalTrades) * 100 : 0;
+        return sum + wr;
+      }, 0) / filteredReviews.length;
+    const avgTrinity =
+      filteredReviews.reduce((sum, r) => sum + r.avgTrinityScore, 0) /
+      filteredReviews.length;
+    return {
+      totalTrades,
+      totalPnl,
+      avgWinRate,
+      avgTrinity,
+      weeks: filteredReviews.length,
+    };
+  }, [filteredReviews]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Weekly Review</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Weekly Reviews
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Analyze your trading performance each week
+            Track your weekly trading performance
           </p>
         </div>
-        <Button onClick={() => setShowReviewForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Weekly Review
+        <Button asChild className="gap-2">
+          <Link href="/weekly/new">
+            <Plus className="h-4 w-4" />
+            Add Review
+          </Link>
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {sortedReviews.map((review) => {
-          const winRate = review.totalTrades > 0 ? Math.round((review.winningTrades / review.totalTrades) * 100) : 0;
-          return (
-            <Card
-              key={review._id}
-              className="hover:border-zinc-400 dark:hover:border-zinc-600 cursor-pointer transition-colors"
-              onClick={() => setSelectedReview(review._id)}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">
-                        Week of {new Date(review.weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {new Date(review.weekEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </CardTitle>
-                      <CardDescription>
-                        {review.totalTrades} trades | {review.winningTrades}W / {review.losingTrades}L | {winRate}% Win Rate
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-xl font-bold ${review.totalPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      ${review.totalPnl.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Quality</p>
-                      <p className="font-medium">{review.overallSetupQualityScore}/10</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {review.avgTrinityScore >= 7 ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-600" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
-                    )}
-                    <div>
-                      <p className="text-xs text-muted-foreground">Trinity</p>
-                      <p className="font-medium">{review.avgTrinityScore}/10</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {review.patienceScore >= 7 ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-600" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-amber-600" />
-                    )}
-                    <div>
-                      <p className="text-xs text-muted-foreground">Patience</p>
-                      <p className="font-medium">{review.patienceScore}/10</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Profit Factor</p>
-                    <p className="font-medium">{review.profitFactor.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Best Trade</p>
-                    <p className="font-medium text-emerald-600">${review.biggestWin.toFixed(2)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        
-        {sortedReviews.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No weekly reviews yet</h3>
-              <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                Start documenting your weekly performance to track your progress and identify patterns in your trading.
-              </p>
-              <Button onClick={() => setShowReviewForm(true)}>
-                Create your first weekly review
-              </Button>
-            </CardContent>
-          </Card>
+      <div className="flex items-center gap-4">
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {years.map((y) => (
+              <SelectItem key={y} value={y}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {summary && (
+          <p className="text-sm text-muted-foreground">
+            {summary.weeks} week{summary.weeks !== 1 ? "s" : ""}
+          </p>
         )}
       </div>
 
-      {showReviewForm && (
-        <WeeklyReviewForm onClose={() => setShowReviewForm(false)} />
+      {summary && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase">
+                Total Trades
+              </p>
+              <p className="text-2xl font-bold mt-1">{summary.totalTrades}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase">
+                Total P&L
+              </p>
+              <p
+                className={`text-2xl font-bold mt-1 ${summary.totalPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}
+              >
+                ${summary.totalPnl.toFixed(2)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase">
+                Avg Win Rate
+              </p>
+              <p className="text-2xl font-bold mt-1">
+                {summary.avgWinRate.toFixed(1)}%
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground uppercase">
+                Avg Trinity
+              </p>
+              <p className="text-2xl font-bold mt-1">
+                {summary.avgTrinity.toFixed(1)}/10
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {selectedReview && selectedReviewData && (
-        <WeeklyReviewDetail
-          review={selectedReviewData}
-          onClose={() => setSelectedReview(null)}
-        />
-      )}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Week</TableHead>
+            <TableHead className="text-center">Trades</TableHead>
+            <TableHead className="text-center">W/L</TableHead>
+            <TableHead className="text-right">P&L</TableHead>
+            <TableHead className="text-center">Win Rate</TableHead>
+            <TableHead className="text-center">Trinity</TableHead>
+            <TableHead className="text-center">Patience</TableHead>
+            <TableHead className="text-right">Profit Factor</TableHead>
+            <TableHead className="w-10"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredReviews.map((review) => {
+            const winRate =
+              review.totalTrades > 0
+                ? Math.round((review.winningTrades / review.totalTrades) * 100)
+                : 0;
+            return (
+              <TableRow
+                key={review._id}
+                className="cursor-pointer"
+                onClick={() => (window.location.href = `/weekly/${review._id}`)}
+              >
+                <TableCell>
+                  <div>
+                    <p className="font-medium text-sm">
+                      {new Date(review.weekStart).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      -{" "}
+                      {new Date(review.weekEnd).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(review.weekEnd).getFullYear()}
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {review.totalTrades}
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="text-emerald-600">
+                    {review.winningTrades}
+                  </span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className="text-red-600">{review.losingTrades}</span>
+                </TableCell>
+                <TableCell
+                  className={`text-right font-semibold ${review.totalPnl >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                >
+                  ${review.totalPnl.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge
+                    variant={winRate >= 50 ? "default" : "secondary"}
+                    className={
+                      winRate >= 50 ? "bg-emerald-100 text-emerald-700" : ""
+                    }
+                  >
+                    {winRate}%
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center">
+                  <span
+                    className={
+                      review.avgTrinityScore >= 7
+                        ? "text-emerald-600"
+                        : review.avgTrinityScore >= 5
+                          ? "text-amber-600"
+                          : "text-red-600"
+                    }
+                  >
+                    {review.avgTrinityScore}/10
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">
+                  <span
+                    className={
+                      review.patienceScore >= 7
+                        ? "text-emerald-600"
+                        : review.patienceScore >= 5
+                          ? "text-amber-600"
+                          : "text-red-600"
+                    }
+                  >
+                    {review.patienceScore}/10
+                  </span>
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {review.profitFactor.toFixed(2)}
+                </TableCell>
+                <TableCell>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {filteredReviews.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={9} className="text-center py-12">
+                <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground mb-4">
+                  No weekly reviews yet
+                </p>
+                <Button asChild>
+                  <Link href="/weekly/new">Create your first review</Link>
+                </Button>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }
