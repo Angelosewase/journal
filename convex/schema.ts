@@ -126,6 +126,9 @@ export default defineSchema({
     waitedForInducement: v.optional(v.boolean()),
     managedRiskPerPlan: v.optional(v.boolean()),
     disciplineScore: v.optional(v.number()),
+
+    // Screenshots
+    screenshots: v.optional(v.array(v.id("_storage"))),
   }).index("by_createdAt", ["createdAt"])
     .index("by_instrument", ["instrument"])
     .index("by_session", ["session"])
@@ -305,4 +308,12 @@ export default defineSchema({
     emotionManagementPlan: v.optional(v.string()),
     readinessScore: v.number(),
   }).index("by_weekStart", ["weekStart"]),
+
+  dailyNotes: defineTable({
+    date: v.string(),
+    notes: v.string(),
+    screenshots: v.optional(v.array(v.id("_storage"))),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_date", ["date"]),
 });

@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { ScreenshotUpload } from "@/components/ScreenshotUpload";
 
 const instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
 const poiQualityOptions = ["IMBALANCE/FAIR_VALUE_GAP", "INDUCEMENT_RESTING", "CLEAN_BREAK"];
@@ -31,6 +32,7 @@ const steps = [
   { id: "postentry", label: "Post-Entry", short: "Post" },
   { id: "outcome", label: "Trade Outcome", short: "Outcome" },
   { id: "reflection", label: "Reflection", short: "Reflection" },
+  { id: "screenshots", label: "Screenshots", short: "Screenshots" },
 ];
 
 export default function EditTradePage() {
@@ -128,6 +130,7 @@ export default function EditTradePage() {
         waitedForInducement: trade.waitedForInducement ?? true,
         managedRiskPerPlan: trade.managedRiskPerPlan ?? true,
         disciplineScore: String(trade.disciplineScore ?? "5"),
+        screenshots: trade.screenshots || [],
       });
     }
   }, [trade]);
@@ -220,6 +223,7 @@ export default function EditTradePage() {
           waitedForInducement: formData.waitedForInducement,
           managedRiskPerPlan: formData.managedRiskPerPlan,
           disciplineScore: Number(formData.disciplineScore),
+          screenshots: formData.screenshots.length > 0 ? formData.screenshots : undefined,
         },
       });
       toast.success("Trade updated successfully!");
@@ -902,6 +906,23 @@ function StepContent({
               <Label>Discipline Score (1-10)</Label>
               <Input type="number" min="1" max="10" value={formData.disciplineScore} onChange={(e) => update("disciplineScore", e.target.value)} />
             </div>
+          </CardContent>
+        </Card>
+      );
+
+    case "screenshots":
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Trade Screenshots</CardTitle>
+            <CardDescription>Capture your chart setups and trade context</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScreenshotUpload
+              value={formData.screenshots}
+              onChange={(ids) => update("screenshots", ids)}
+              maxFiles={5}
+            />
           </CardContent>
         </Card>
       );

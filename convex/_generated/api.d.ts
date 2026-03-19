@@ -9,6 +9,7 @@
  */
 
 import type * as dailyBias from "../dailyBias.js";
+import type * as dailyNotes from "../dailyNotes.js";
 import type * as trades from "../trades.js";
 import type * as weeklyReviews from "../weeklyReviews.js";
 
@@ -20,6 +21,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   dailyBias: typeof dailyBias;
+  dailyNotes: typeof dailyNotes;
   trades: typeof trades;
   weeklyReviews: typeof weeklyReviews;
 }>;

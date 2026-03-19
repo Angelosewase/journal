@@ -12,6 +12,7 @@ import {
   Minus,
   CalendarDays,
   ArrowRight,
+  StickyNote,
 } from "lucide-react";
 import {
   Sheet,
@@ -45,6 +46,10 @@ type DayData = {
     accuracyScore?: number;
     overallDiscipline?: number;
   };
+  dailyNote?: {
+    notes: string;
+    screenshotCount: number;
+  };
   totalPnl: number;
   wins: number;
   losses: number;
@@ -70,6 +75,7 @@ function getBiasPillColor(bias: string) {
 export default function CalendarPage() {
   const trades = useQuery(api.trades.list);
   const dailyBiases = useQuery(api.dailyBias.list);
+  const dailyNotes = useQuery(api.dailyNotes.list);
 
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -80,7 +86,7 @@ export default function CalendarPage() {
   const todayStr = today.toISOString().split("T")[0];
 
   const dayDataMap = useMemo(() => {
-    if (!trades || !dailyBiases) return new Map<string, DayData>();
+    if (!trades || !dailyBiases || !dailyNotes) return new Map<string, DayData>();
 
     const map = new Map<string, DayData>();
 
@@ -144,8 +150,29 @@ export default function CalendarPage() {
       }
     }
 
+    for (const note of dailyNotes) {
+      const existing = map.get(note.date);
+      const noteData = {
+        notes: note.notes,
+        screenshotCount: note.screenshots?.length || 0,
+      };
+      if (existing) {
+        existing.dailyNote = noteData;
+      } else {
+        map.set(note.date, {
+          date: note.date,
+          trades: [],
+          totalPnl: 0,
+          wins: 0,
+          losses: 0,
+          breakevens: 0,
+          dailyNote: noteData,
+        });
+      }
+    }
+
     return map;
-  }, [trades, dailyBiases]);
+  }, [trades, dailyBiases, dailyNotes]);
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1);
@@ -212,7 +239,7 @@ export default function CalendarPage() {
       })
     : "";
 
-  if (!trades || !dailyBiases) {
+  if (!trades || !dailyBiases || !dailyNotes) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 pb-16">
@@ -337,6 +364,7 @@ export default function CalendarPage() {
               const dayData = dayDataMap.get(cell.dateStr);
               const isToday = cell.dateStr === todayStr;
               const hasTrades = dayData && dayData.trades.length > 0;
+              const hasNotes = dayData && dayData.dailyNote;
               const indicatorColor = getDayIndicatorColor(dayData);
 
               return (
@@ -346,7 +374,7 @@ export default function CalendarPage() {
                   className={`h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors relative ${
                     isToday
                       ? "bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900"
-                      : hasTrades
+                      : hasTrades || hasNotes
                         ? "bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                         : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   }`}
@@ -358,8 +386,15 @@ export default function CalendarPage() {
                   }`}>
                     {cell.date.getDate()}
                   </span>
-                  {indicatorColor && (
-                    <div className={`h-1 w-1 rounded-full ${indicatorColor}`} />
+                  {(indicatorColor || hasNotes) && (
+                    <div className="flex items-center gap-1">
+                      {indicatorColor && (
+                        <div className={`h-1 w-1 rounded-full ${indicatorColor}`} />
+                      )}
+                      {hasNotes && (
+                        <div className="h-1 w-1 rounded-full bg-indigo-400" />
+                      )}
+                    </div>
                   )}
                 </button>
               );
@@ -379,6 +414,10 @@ export default function CalendarPage() {
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-amber-500" />
               <p className="text-[10px] text-zinc-400">Break Even</p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-indigo-400" />
+              <p className="text-[10px] text-zinc-400">Notes</p>
             </div>
           </div>
         </div>
@@ -458,6 +497,29 @@ export default function CalendarPage() {
                           </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Daily Notes */}
+                {selectedDayData.dailyNote && (
+                  <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Daily Notes</p>
+                      <Link
+                        href={`/daily-notes?date=${selectedDate}`}
+                        className="flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-600 font-medium transition-colors"
+                      >
+                        View <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 line-clamp-3 leading-relaxed">
+                      {selectedDayData.dailyNote.notes}
+                    </p>
+                    {selectedDayData.dailyNote.screenshotCount > 0 && (
+                      <p className="text-[10px] text-zinc-400 mt-2">
+                        {selectedDayData.dailyNote.screenshotCount} screenshot{selectedDayData.dailyNote.screenshotCount > 1 ? "s" : ""}
+                      </p>
                     )}
                   </div>
                 )}

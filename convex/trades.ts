@@ -1,6 +1,20 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getStorageUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    return ctx.storage.getUrl(args.storageId);
+  },
+});
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -118,6 +132,7 @@ export const create = mutation({
     waitedForInducement: v.optional(v.boolean()),
     managedRiskPerPlan: v.optional(v.boolean()),
     disciplineScore: v.optional(v.number()),
+    screenshots: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -304,7 +319,8 @@ export const getAllData = query({
     const trades = await ctx.db.query("trades").collect();
     const dailyBiases = await ctx.db.query("dailyBias").collect();
     const weeklyReviews = await ctx.db.query("weeklyReviews").collect();
+    const dailyNotes = await ctx.db.query("dailyNotes").collect();
     
-    return { trades, dailyBiases, weeklyReviews };
+    return { trades, dailyBiases, weeklyReviews, dailyNotes };
   },
 });

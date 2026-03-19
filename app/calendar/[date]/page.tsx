@@ -15,6 +15,7 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
+  StickyNote,
 } from "lucide-react";
 
 export default function CalendarDayPage() {
@@ -23,9 +24,11 @@ export default function CalendarDayPage() {
 
   const trades = useQuery(api.trades.list);
   const dailyBiases = useQuery(api.dailyBias.list);
+  const dailyNotes = useQuery(api.dailyNotes.list);
 
   const targetDate = dateStr;
   const dayBias = dailyBiases?.find((b) => b.date === targetDate);
+  const dayNote = dailyNotes?.find((n) => n.date === targetDate);
   const dayTrades = trades?.filter(
     (t) => new Date(t.createdAt).toISOString().split("T")[0] === targetDate
   );
@@ -63,7 +66,7 @@ export default function CalendarDayPage() {
   nextDate.setDate(nextDate.getDate() + 1);
   const nextDateStr = nextDate.toISOString().split("T")[0];
 
-  if (!trades || !dailyBiases) {
+  if (!trades || !dailyBiases || !dailyNotes) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 pb-16">
@@ -330,6 +333,69 @@ export default function CalendarDayPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Daily Notes Summary */}
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-violet-100 dark:bg-violet-900/20 flex items-center justify-center">
+                <StickyNote className="h-4 w-4 text-violet-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Daily Notes</p>
+                <p className="text-[10px] text-zinc-400">Personal reflections & observations</p>
+              </div>
+            </div>
+            {dayNote && (
+              <Link href="/daily-notes" className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
+                View all <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
+
+          {dayNote ? (
+            <div className="space-y-4">
+              <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none">
+                <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                  {dayNote.notes.length > 300 ? (
+                    <>
+                      {dayNote.notes.slice(0, 300)}...
+                      <Link href="#" className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium ml-1">
+                        Read more
+                      </Link>
+                    </>
+                  ) : (
+                    dayNote.notes
+                  )}
+                </p>
+              </div>
+              
+              {dayNote.screenshots && dayNote.screenshots.length > 0 && (
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="h-8 w-8 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+                    <StickyNote className="h-4 w-4 text-zinc-400" />
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    {dayNote.screenshots.length} screenshot{dayNote.screenshots.length !== 1 ? "s" : ""} attached
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <div className="h-14 w-14 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+                <StickyNote className="h-6 w-6 text-zinc-300 dark:text-zinc-600" />
+              </div>
+              <p className="text-sm text-zinc-400">No notes recorded for this day</p>
+              <Link
+                href="/daily-notes"
+                className="px-4 py-2 rounded-full bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors"
+              >
+                Add Daily Notes
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Trades list */}

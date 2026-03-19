@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Nunito_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { HorizontalNav } from "@/components/HorizontalNav";
+import { AppShell } from "@/components/AppShell";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -44,12 +44,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ConvexClientProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <HorizontalNav />
-              <main className="flex-1 container py-6 px-4 max-w-7xl mx-auto">
-                {children}
-              </main>
-            </div>
+            <AppShell>
+              {children}
+            </AppShell>
             <Toaster />
           </ConvexClientProvider>
         </ThemeProvider>

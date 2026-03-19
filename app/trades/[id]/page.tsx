@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 
 export default function TradeDetailPage() {
   const params = useParams();
@@ -220,6 +221,12 @@ export default function TradeDetailPage() {
             {trade.whatWentRight && <Field label="What Went Right" value={trade.whatWentRight} />}
             {trade.institutionalLessons && <Field label="Institutional Lessons" value={trade.institutionalLessons} />}
           </div>
+        </Section>
+      )}
+
+      {trade.screenshots && trade.screenshots.length > 0 && (
+        <Section title="Screenshots">
+          <ScreenshotGallery storageIds={trade.screenshots} />
         </Section>
       )}
 

@@ -23,12 +23,14 @@ import {
   User,
   Menu,
   Computer,
+  StickyNote,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Today", icon: Calendar },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/trades", label: "Trade Log", icon: ClipboardList },
+  { href: "/daily-notes", label: "Notes", icon: StickyNote },
   { href: "/weekly", label: "Weekly", icon: BarChart3 },
   { href: "/statistics", label: "Statistics", icon: TrendingUp },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -92,7 +94,7 @@ export function HorizontalNav() {
           </div>
 
           <div className="flex items-center gap-4">
-            <nav className="hidden md:flex items-center gap-1  px-0.5 h-11  rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md shadow-sm">
+            <nav className="hidden md:flex items-center gap-1  p-0.5 h-12  rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md shadow-sm">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
