@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Filter, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +27,7 @@ export default function TradesPage() {
   const trades = useQuery(api.trades.list);
   const removeTrade = useMutation(api.trades.remove);
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [filters, setFilters] = useState({
     environment: "",
     instrument: "",
@@ -54,10 +55,9 @@ export default function TradesPage() {
   const selectedTradeData = trades?.find((t) => t._id === selectedTrade);
 
   const handleDelete = async (id: any) => {
-    if (confirm("Are you sure you want to delete this trade?")) {
-      await removeTrade({ id });
-      setSelectedTrade(null);
-    }
+    await removeTrade({ id });
+    setShowDeleteDialog(false);
+    setSelectedTrade(null);
   };
 
   return (
@@ -279,7 +279,7 @@ export default function TradesPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(selectedTradeData._id)}>
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
                   Delete Trade
                 </Button>
                 <Button onClick={() => router.push(`/trades/${selectedTradeData._id}`)}>
@@ -288,6 +288,25 @@ export default function TradesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Delete Trade</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this {selectedTradeData?.instrument} {selectedTradeData?.direction} trade? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => selectedTradeData && handleDelete(selectedTradeData._id)}>
+              Delete Trade
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

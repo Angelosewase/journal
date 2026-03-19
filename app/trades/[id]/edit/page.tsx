@@ -1,9 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,208 +33,209 @@ const steps = [
   { id: "reflection", label: "Reflection", short: "Reflection" },
 ];
 
-export default function NewTradePage() {
+export default function EditTradePage() {
   const router = useRouter();
-  const createTrade = useMutation(api.trades.create);
+  const params = useParams();
+  const tradeId = params.id as Id<"trades">;
+  const trade = useQuery(api.trades.get, { id: tradeId });
+  const updateTrade = useMutation(api.trades.update);
 
   const [activeStep, setActiveStep] = useState("basic");
-  const [formData, setFormData] = useState({
-    instrument: "EUR/USD",
-    direction: "LONG" as "LONG" | "SHORT",
-    entryPrice: "",
-    exitPrice: "",
-    positionSize: "0.01",
-    commission: "0",
-    environment: "DEMO" as "BACKTESTING" | "DEMO" | "LIVE",
-    dailyBias: "NEUTRAL" as "BULLISH" | "BEARISH" | "NEUTRAL",
-    externalStructure: "",
-    majorLiquidityPools: "",
-    internalStructure: "",
-    currentRange: "",
-    minorPushStatus: "",
-    session: "LONDON" as "ASIA" | "LONDON" | "NEW_YORK" | "OTHER",
-    isInKillzone: true,
-    poiType: "EXTREME" as "EXTREME" | "DECISIONAL",
-    poiQuality: [] as string[],
-    poiDescription: "",
-    gapSize: "",
-    inducementResting: "",
-    inducementType: "",
-    distanceFromPoi: "",
-    cleanBreak: false,
-    breakSize: "",
-    trapSwept: "NO" as "YES" | "NO" | "PARTIAL",
-    trapType: "",
-    trapLocation: "",
-    trapTappedCount: "",
-    trapCleanliness: "",
-    missingInducement: false,
-    ltfEntryTimeframe: "5M",
-    smcType: "",
-    smsAfterTrap: false,
-    bmsPattern: "",
-    bmsConfidence: "5",
-    rtoApplicable: false,
-    rtoDistance: "",
-    entryConfidence: "5",
-    tradeModel: "CONTINUATION" as "CONTINUATION" | "REVERSAL",
-    narrativeAlignment: true,
-    tradingWithMainPush: true,
-    noNarrativeMisalignment: true,
-    clearLiquidityEngineering: "UNCLEAR",
-    institutionsReasoned: false,
-    poiMitigationStatus: "UNMITIGATED" as "UNMITIGATED" | "MITIGATED_ONCE" | "WEAKENED",
-    approachDynamics: "",
-    stopLossPrice: "",
-    stopLossPlacement: "IFC_ABOVE",
-    stopLossPips: "5",
-    stopLossQuality: "CLEAN",
-    riskAmount: "10",
-    riskPercentage: "1",
-    target1RR: "3",
-    target2RR: "10",
-    timeInTradeMinutes: "",
-    maxProfitReached: "",
-    maxDrawdown: "",
-    target1Hit: false,
-    stopMovedToBE: false,
-    target2Status: "",
-    manualExit: false,
-    manualExitReason: "",
-    tradeClosureReason: "OPEN",
-    pnl: "",
-    winLossStatus: "BREAK_EVEN" as "WIN" | "LOSS" | "BREAK_EVEN",
-    tradeQualityScore: "5",
-    poiQualityRating: "ACCEPTABLE",
-    inducementQualityRating: "CLEAR",
-    trinityAlignmentRating: "ACCEPTABLE",
-    riskExecutionRating: "GOOD",
-    disciplineRating: "MINOR_RUSH",
-    whyEntered: "",
-    playedAsExpected: true,
-    whatWentWrong: "",
-    whatWentRight: "",
-    institutionalLessons: "",
-    followedTrinity: true,
-    correctKillzone: true,
-    respectedHTFNarrative: true,
-    waitedForInducement: true,
-    managedRiskPerPlan: true,
-    disciplineScore: "5",
-  });
+  const [formData, setFormData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (trade) {
+      setFormData({
+        instrument: trade.instrument || "EUR/USD",
+        direction: trade.direction || "LONG",
+        entryPrice: String(trade.entryPrice ?? ""),
+        exitPrice: String(trade.exitPrice ?? ""),
+        positionSize: String(trade.positionSize ?? "0.01"),
+        commission: String(trade.commission ?? "0"),
+        environment: trade.environment || "DEMO",
+        dailyBias: trade.dailyBias || "NEUTRAL",
+        externalStructure: trade.externalStructure || "",
+        majorLiquidityPools: trade.majorLiquidityPools || "",
+        internalStructure: trade.internalStructure || "",
+        currentRange: trade.currentRange || "",
+        minorPushStatus: trade.minorPushStatus || "",
+        session: trade.session || "LONDON",
+        isInKillzone: trade.isInKillzone ?? true,
+        poiType: trade.poiType || "EXTREME",
+        poiQuality: trade.poiQuality || [],
+        poiDescription: trade.poiDescription || "",
+        gapSize: String(trade.gapSize ?? ""),
+        inducementResting: trade.inducementResting || "",
+        inducementType: trade.inducementType || "",
+        distanceFromPoi: String(trade.distanceFromPoi ?? ""),
+        cleanBreak: trade.cleanBreak ?? false,
+        breakSize: String(trade.breakSize ?? ""),
+        trapSwept: trade.trapSwept || "NO",
+        trapType: trade.trapType || "",
+        trapLocation: String(trade.trapLocation ?? ""),
+        trapTappedCount: String(trade.trapTappedCount ?? ""),
+        trapCleanliness: trade.trapCleanliness || "",
+        missingInducement: trade.missingInducement ?? false,
+        ltfEntryTimeframe: trade.ltfEntryTimeframe || "5M",
+        smcType: trade.smcType || "",
+        smsAfterTrap: trade.smsAfterTrap ?? false,
+        bmsPattern: trade.bmsPattern || "",
+        bmsConfidence: String(trade.bmsConfidence ?? "5"),
+        rtoApplicable: trade.rtoApplicable ?? false,
+        rtoDistance: String(trade.rtoDistance ?? ""),
+        entryConfidence: String(trade.entryConfidence ?? "5"),
+        tradeModel: trade.tradeModel || "CONTINUATION",
+        narrativeAlignment: trade.narrativeAlignment ?? true,
+        tradingWithMainPush: trade.tradingWithMainPush ?? true,
+        noNarrativeMisalignment: trade.noNarrativeMisalignment ?? true,
+        clearLiquidityEngineering: trade.clearLiquidityEngineering || "UNCLEAR",
+        institutionsReasoned: trade.institutionsReasoned ?? false,
+        poiMitigationStatus: trade.poiMitigationStatus || "UNMITIGATED",
+        approachDynamics: trade.approachDynamics || "",
+        stopLossPrice: String(trade.stopLossPrice ?? ""),
+        stopLossPlacement: trade.stopLossPlacement || "IFC_ABOVE",
+        stopLossPips: String(trade.stopLossPips ?? "5"),
+        stopLossQuality: trade.stopLossQuality || "CLEAN",
+        riskAmount: String(trade.riskAmount ?? "10"),
+        riskPercentage: String(trade.riskPercentage ?? "1"),
+        target1RR: String(trade.target1RR ?? "3"),
+        target2RR: String(trade.target2RR ?? "10"),
+        timeInTradeMinutes: String(trade.timeInTradeMinutes ?? ""),
+        maxProfitReached: String(trade.maxProfitReached ?? ""),
+        maxDrawdown: String(trade.maxDrawdown ?? ""),
+        target1Hit: trade.target1Hit ?? false,
+        stopMovedToBE: trade.stopMovedToBE ?? false,
+        target2Status: trade.target2Status || "",
+        manualExit: trade.manualExit ?? false,
+        manualExitReason: trade.manualExitReason || "",
+        tradeClosureReason: trade.tradeClosureReason || "OPEN",
+        pnl: String(trade.pnl ?? ""),
+        winLossStatus: trade.winLossStatus || "BREAK_EVEN",
+        tradeQualityScore: String(trade.tradeQualityScore ?? "5"),
+        poiQualityRating: trade.poiQualityRating || "ACCEPTABLE",
+        inducementQualityRating: trade.inducementQualityRating || "CLEAR",
+        trinityAlignmentRating: trade.trinityAlignmentRating || "ACCEPTABLE",
+        riskExecutionRating: trade.riskExecutionRating || "GOOD",
+        disciplineRating: trade.disciplineRating || "MINOR_RUSH",
+        whyEntered: trade.whyEntered || "",
+        playedAsExpected: trade.playedAsExpected ?? true,
+        whatWentWrong: trade.whatWentWrong || "",
+        whatWentRight: trade.whatWentRight || "",
+        institutionalLessons: trade.institutionalLessons || "",
+        followedTrinity: trade.followedTrinity ?? true,
+        correctKillzone: trade.correctKillzone ?? true,
+        respectedHTFNarrative: trade.respectedHTFNarrative ?? true,
+        waitedForInducement: trade.waitedForInducement ?? true,
+        managedRiskPerPlan: trade.managedRiskPerPlan ?? true,
+        disciplineScore: String(trade.disciplineScore ?? "5"),
+      });
+    }
+  }, [trade]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createTrade({
-        instrument: formData.instrument,
-        direction: formData.direction,
-        entryPrice: Number(formData.entryPrice),
-        exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
-        currentPrice: undefined,
-        positionSize: Number(formData.positionSize),
-        commission: Number(formData.commission),
-        environment: formData.environment,
-        dailyBias: formData.dailyBias,
-        externalStructure: formData.externalStructure,
-        majorLiquidityPools: formData.majorLiquidityPools,
-        internalStructure: formData.internalStructure,
-        currentRange: formData.currentRange,
-        minorPushStatus: formData.minorPushStatus,
-        session: formData.session,
-        isInKillzone: formData.isInKillzone,
-        poiType: formData.poiType,
-        poiQuality: formData.poiQuality,
-        poiDescription: formData.poiDescription || undefined,
-        gapSize: formData.gapSize ? Number(formData.gapSize) : undefined,
-        inducementResting: formData.inducementResting || undefined,
-        inducementType: formData.inducementType || undefined,
-        distanceFromPoi: formData.distanceFromPoi ? Number(formData.distanceFromPoi) : undefined,
-        liquidityPoolDescription: undefined,
-        cleanBreak: formData.cleanBreak || undefined,
-        breakSize: formData.breakSize ? Number(formData.breakSize) : undefined,
-        trapSwept: formData.trapSwept,
-        trapType: formData.trapType || undefined,
-        trapLocation: formData.trapLocation ? Number(formData.trapLocation) : undefined,
-        trapTappedCount: formData.trapTappedCount ? Number(formData.trapTappedCount) : undefined,
-        trapCleanliness: formData.trapCleanliness || undefined,
-        liquidityEngineering: undefined,
-        liquidityTappedCount: undefined,
-        retailBehavior: undefined,
-        missingInducement: formData.missingInducement,
-        ltfEntryTimeframe: formData.ltfEntryTimeframe || undefined,
-        smcType: formData.smcType || undefined,
-        smsAfterTrap: formData.smsAfterTrap,
-        bmsPattern: formData.bmsPattern || undefined,
-        bmsConfidence: Number(formData.bmsConfidence),
-        rtoApplicable: formData.rtoApplicable,
-        rtoDistance: formData.rtoDistance ? Number(formData.rtoDistance) : undefined,
-        entryConfidence: Number(formData.entryConfidence),
-        tradeModel: formData.tradeModel,
-        narrativeAlignment: formData.narrativeAlignment,
-        tradingWithMainPush: formData.tradingWithMainPush,
-        noNarrativeMisalignment: formData.noNarrativeMisalignment,
-        clearLiquidityEngineering: formData.clearLiquidityEngineering || undefined,
-        institutionsReasoned: formData.institutionsReasoned || undefined,
-        poiMitigationStatus: formData.poiMitigationStatus,
-        approachDynamics: formData.approachDynamics || undefined,
-        stopLossPrice: Number(formData.stopLossPrice),
-        stopLossPlacement: formData.stopLossPlacement,
-        stopLossPips: Number(formData.stopLossPips),
-        stopLossQuality: formData.stopLossQuality,
-        riskAmount: Number(formData.riskAmount),
-        riskPercentage: Number(formData.riskPercentage),
-        target1RR: Number(formData.target1RR),
-        target2RR: Number(formData.target2RR),
-        target1Price: undefined,
-        target2Price: undefined,
-        timeInTradeMinutes: formData.timeInTradeMinutes ? Number(formData.timeInTradeMinutes) : undefined,
-        maxProfitReached: formData.maxProfitReached ? Number(formData.maxProfitReached) : undefined,
-        maxDrawdown: formData.maxDrawdown ? Number(formData.maxDrawdown) : undefined,
-        target1Hit: formData.target1Hit || undefined,
-        target1HitPrice: undefined,
-        stopMovedToBE: formData.stopMovedToBE || undefined,
-        timeToTarget1: undefined,
-        target2Status: formData.target2Status || undefined,
-        target2ClosedAt: undefined,
-        finalRR: undefined,
-        timeToClose: undefined,
-        breakEvenStopsMoved: undefined,
-        manualExit: formData.manualExit || undefined,
-        manualExitReason: formData.manualExitReason || undefined,
-        manualExitAligned: undefined,
-        tradeClosureReason: formData.tradeClosureReason,
-        pnl: formData.pnl ? Number(formData.pnl) : undefined,
-        pnlPercentage: undefined,
-        winLossStatus: formData.winLossStatus,
-        tradeQualityScore: Number(formData.tradeQualityScore),
-        poiQualityRating: formData.poiQualityRating,
-        inducementQualityRating: formData.inducementQualityRating,
-        trinityAlignmentRating: formData.trinityAlignmentRating,
-        riskExecutionRating: formData.riskExecutionRating,
-        disciplineRating: formData.disciplineRating,
-        whyEntered: formData.whyEntered || undefined,
-        playedAsExpected: formData.playedAsExpected,
-        expansionDescription: undefined,
-        surpriseDescription: undefined,
-        whatWentWrong: formData.whatWentWrong || undefined,
-        whatWentRight: formData.whatWentRight || undefined,
-        institutionalLessons: formData.institutionalLessons || undefined,
-        howAffectsNext: undefined,
-        followedTrinity: formData.followedTrinity,
-        trinityViolationExplanation: undefined,
-        correctKillzone: formData.correctKillzone,
-        respectedHTFNarrative: formData.respectedHTFNarrative,
-        waitedForInducement: formData.waitedForInducement,
-        managedRiskPerPlan: formData.managedRiskPerPlan,
-        disciplineScore: Number(formData.disciplineScore),
+      await updateTrade({
+        id: tradeId,
+        updates: {
+          instrument: formData.instrument,
+          direction: formData.direction,
+          entryPrice: Number(formData.entryPrice),
+          exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
+          positionSize: Number(formData.positionSize),
+          commission: Number(formData.commission),
+          environment: formData.environment,
+          dailyBias: formData.dailyBias,
+          externalStructure: formData.externalStructure,
+          majorLiquidityPools: formData.majorLiquidityPools,
+          internalStructure: formData.internalStructure,
+          currentRange: formData.currentRange,
+          minorPushStatus: formData.minorPushStatus,
+          session: formData.session,
+          isInKillzone: formData.isInKillzone,
+          poiType: formData.poiType,
+          poiQuality: formData.poiQuality,
+          poiDescription: formData.poiDescription || undefined,
+          gapSize: formData.gapSize ? Number(formData.gapSize) : undefined,
+          inducementResting: formData.inducementResting || undefined,
+          inducementType: formData.inducementType || undefined,
+          distanceFromPoi: formData.distanceFromPoi ? Number(formData.distanceFromPoi) : undefined,
+          cleanBreak: formData.cleanBreak,
+          breakSize: formData.breakSize ? Number(formData.breakSize) : undefined,
+          trapSwept: formData.trapSwept,
+          trapType: formData.trapType || undefined,
+          trapLocation: formData.trapLocation ? Number(formData.trapLocation) : undefined,
+          trapTappedCount: formData.trapTappedCount ? Number(formData.trapTappedCount) : undefined,
+          trapCleanliness: formData.trapCleanliness || undefined,
+          missingInducement: formData.missingInducement,
+          ltfEntryTimeframe: formData.ltfEntryTimeframe || undefined,
+          smcType: formData.smcType || undefined,
+          smsAfterTrap: formData.smsAfterTrap,
+          bmsPattern: formData.bmsPattern || undefined,
+          bmsConfidence: Number(formData.bmsConfidence),
+          rtoApplicable: formData.rtoApplicable,
+          rtoDistance: formData.rtoDistance ? Number(formData.rtoDistance) : undefined,
+          entryConfidence: Number(formData.entryConfidence),
+          tradeModel: formData.tradeModel,
+          narrativeAlignment: formData.narrativeAlignment,
+          tradingWithMainPush: formData.tradingWithMainPush,
+          noNarrativeMisalignment: formData.noNarrativeMisalignment,
+          clearLiquidityEngineering: formData.clearLiquidityEngineering || undefined,
+          institutionsReasoned: formData.institutionsReasoned || undefined,
+          poiMitigationStatus: formData.poiMitigationStatus,
+          approachDynamics: formData.approachDynamics || undefined,
+          stopLossPrice: Number(formData.stopLossPrice),
+          stopLossPlacement: formData.stopLossPlacement,
+          stopLossPips: Number(formData.stopLossPips),
+          stopLossQuality: formData.stopLossQuality,
+          riskAmount: Number(formData.riskAmount),
+          riskPercentage: Number(formData.riskPercentage),
+          target1RR: Number(formData.target1RR),
+          target2RR: Number(formData.target2RR),
+          timeInTradeMinutes: formData.timeInTradeMinutes ? Number(formData.timeInTradeMinutes) : undefined,
+          maxProfitReached: formData.maxProfitReached ? Number(formData.maxProfitReached) : undefined,
+          maxDrawdown: formData.maxDrawdown ? Number(formData.maxDrawdown) : undefined,
+          target1Hit: formData.target1Hit || undefined,
+          stopMovedToBE: formData.stopMovedToBE || undefined,
+          target2Status: formData.target2Status || undefined,
+          manualExit: formData.manualExit || undefined,
+          manualExitReason: formData.manualExitReason || undefined,
+          tradeClosureReason: formData.tradeClosureReason,
+          pnl: formData.pnl ? Number(formData.pnl) : undefined,
+          winLossStatus: formData.winLossStatus,
+          tradeQualityScore: Number(formData.tradeQualityScore),
+          poiQualityRating: formData.poiQualityRating,
+          inducementQualityRating: formData.inducementQualityRating,
+          trinityAlignmentRating: formData.trinityAlignmentRating,
+          riskExecutionRating: formData.riskExecutionRating,
+          disciplineRating: formData.disciplineRating,
+          whyEntered: formData.whyEntered || undefined,
+          playedAsExpected: formData.playedAsExpected,
+          whatWentWrong: formData.whatWentWrong || undefined,
+          whatWentRight: formData.whatWentRight || undefined,
+          institutionalLessons: formData.institutionalLessons || undefined,
+          followedTrinity: formData.followedTrinity,
+          correctKillzone: formData.correctKillzone,
+          respectedHTFNarrative: formData.respectedHTFNarrative,
+          waitedForInducement: formData.waitedForInducement,
+          managedRiskPerPlan: formData.managedRiskPerPlan,
+          disciplineScore: Number(formData.disciplineScore),
+        },
       });
-      toast.success("Trade logged successfully!");
-      router.push("/trades");
+      toast.success("Trade updated successfully!");
+      router.push(`/trades/${tradeId}`);
     } catch (error) {
-      toast.error("Failed to save trade");
+      toast.error("Failed to update trade");
     }
   };
+
+  if (!trade || Object.keys(formData).length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Loading trade...</p>
+      </div>
+    );
+  }
 
   const currentStepIndex = steps.findIndex((s) => s.id === activeStep);
   const canGoBack = currentStepIndex > 0;
@@ -243,13 +245,13 @@ export default function NewTradePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon-sm" asChild>
-          <Link href="/trades">
+          <Link href={`/trades/${tradeId}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Log New Trade</h1>
-          <p className="text-sm text-muted-foreground">Record your trade with the WWA framework</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Edit Trade</h1>
+          <p className="text-sm text-muted-foreground">{trade.instrument} {trade.direction}</p>
         </div>
       </div>
 
@@ -258,7 +260,6 @@ export default function NewTradePage() {
           {steps.map((step, index) => (
             <button
               key={step.id}
-              type="button"
               onClick={() => setActiveStep(step.id)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
                 activeStep === step.id
@@ -317,7 +318,7 @@ export default function NewTradePage() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" type="button" asChild>
-                  <Link href="/trades">Cancel</Link>
+                  <Link href={`/trades/${tradeId}`}>Cancel</Link>
                 </Button>
                 {canGoForward ? (
                   <Button
@@ -329,7 +330,7 @@ export default function NewTradePage() {
                 ) : (
                   <Button type="submit" className="gap-2">
                     <Save className="h-4 w-4" />
-                    Save Trade
+                    Update Trade
                   </Button>
                 )}
               </div>
@@ -502,12 +503,12 @@ function StepContent({
                   <div key={opt} className="flex items-center space-x-2">
                     <Checkbox
                       id={`poi-${opt}`}
-                      checked={formData.poiQuality.includes(opt)}
+                      checked={formData.poiQuality?.includes(opt)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          update("poiQuality", [...formData.poiQuality, opt]);
+                          update("poiQuality", [...(formData.poiQuality || []), opt]);
                         } else {
-                          update("poiQuality", formData.poiQuality.filter((q: string) => q !== opt));
+                          update("poiQuality", (formData.poiQuality || []).filter((q: string) => q !== opt));
                         }
                       }}
                     />

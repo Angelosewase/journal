@@ -29,8 +29,9 @@ export function HorizontalNav() {
       <div className="container flex h-14 items-center px-4">
         <div className="flex items-center gap-6 mr-6">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
-            <span className="hidden sm:inline-block">WWA Journal</span>
+            <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+              W
+            </div>
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
