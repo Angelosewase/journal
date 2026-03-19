@@ -90,7 +90,7 @@ export function HorizontalNav() {
           </div>
 
           <div className="flex items-center gap-4">
-            <nav className="hidden md:flex items-center gap-1   h-11  rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md shadow-sm">
+            <nav className="hidden md:flex items-center gap-1  px-0.5 h-11  rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md shadow-sm">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
