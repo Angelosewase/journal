@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, ChevronRight, ArrowLeft, BookOpen, Plus } from "lucide-react";
+import { FileText, ChevronRight, ArrowLeft, BookOpen, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,9 +14,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 
 type StrategyFile = {
   name: string;
@@ -130,8 +127,7 @@ export function StrategyViewer() {
   const [contentLoading, setContentLoading] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   const fetchFiles = useCallback(() => {
@@ -163,17 +159,20 @@ export function StrategyViewer() {
   }, []);
 
   const handleSave = async () => {
-    if (!newTitle.trim() || !newContent.trim()) {
-      toast.error("Title and content are required");
+    if (!uploadedFile) {
+      toast.error("Please upload a .md file");
       return;
     }
 
     setSaving(true);
     try {
+      const fileContent = await uploadedFile.text();
+      const title = uploadedFile.name.replace(/\.md$/i, "");
+
       const res = await fetch("/api/strategies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle.trim(), content: newContent.trim() }),
+        body: JSON.stringify({ title, content: fileContent }),
       });
 
       const data = await res.json();
@@ -184,8 +183,7 @@ export function StrategyViewer() {
 
       toast.success("Strategy saved!");
       setDialogOpen(false);
-      setNewTitle("");
-      setNewContent("");
+      setUploadedFile(null);
       fetchFiles();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save strategy");
@@ -253,7 +251,7 @@ export function StrategyViewer() {
           </div>
           <button
             onClick={() => setDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-xs font-semibold shadow-sm transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             New Strategy
@@ -268,9 +266,9 @@ export function StrategyViewer() {
             <p className="text-sm text-zinc-400">No strategy documents yet</p>
             <button
               onClick={() => setDialogOpen(true)}
-              className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+              className="px-4 py-2 rounded-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-xs font-semibold transition-colors"
             >
-              Create Your First Strategy
+              Upload Your First Strategy
             </button>
           </div>
         ) : (
@@ -302,42 +300,56 @@ export function StrategyViewer() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Strategy</DialogTitle>
+            <DialogTitle>Upload Strategy</DialogTitle>
             <DialogDescription>
-              Write a strategy document in Markdown. It will be saved to strategy-docs/.
+              Upload a Markdown file. The filename will be used as the strategy name.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                Title
-              </Label>
-              <Input
-                placeholder="e.g. Hidden Sweep Strategy"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="h-9 text-sm rounded-lg border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                Content (Markdown)
-              </Label>
-              <Textarea
-                placeholder="# Strategy Name&#10;&#10;## Overview&#10;&#10;Describe your strategy here..."
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                className="min-h-[240px] text-sm rounded-lg border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-mono"
-              />
-            </div>
+          <div>
+            <label
+              htmlFor="strategy-upload"
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-8 cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+            >
+              <div className="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-zinc-400 dark:text-zinc-500" />
+              </div>
+              {uploadedFile ? (
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    {uploadedFile.name}
+                  </p>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
+                    {(uploadedFile.size / 1024).toFixed(1)} KB — click to replace
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    Click to upload a .md file
+                  </p>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1">
+                    Markdown files only
+                  </p>
+                </div>
+              )}
+            </label>
+            <input
+              id="strategy-upload"
+              type="file"
+              accept=".md,.markdown"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setUploadedFile(file);
+              }}
+            />
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setDialogOpen(false);
-                setNewTitle("");
-                setNewContent("");
+                setUploadedFile(null);
               }}
               className="rounded-full"
             >
@@ -345,8 +357,8 @@ export function StrategyViewer() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || !newTitle.trim() || !newContent.trim()}
-              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={saving || !uploadedFile}
+              className="rounded-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200"
             >
               {saving ? "Saving..." : "Save Strategy"}
             </Button>
