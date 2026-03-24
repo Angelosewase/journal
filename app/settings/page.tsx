@@ -2,12 +2,12 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Download, Upload, Info, TrendingUp, Target, Clock, Layers } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Download, Upload, BookOpen, Database } from "lucide-react";
 import { toast } from "sonner";
+import { StrategyViewer } from "@/components/StrategyViewer";
 
 export default function SettingsPage() {
   const allData = useQuery(api.trades.getAllData);
@@ -60,31 +60,55 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your journal data and preferences
+        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Settings</h1>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">
+          Manage your journal data and strategy documents
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-          <CardDescription>
-            Export your trading journal data for backup or import previous backups to restore your data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4">
-          <Button onClick={handleExport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Export All Data
-          </Button>
-          <Button variant="outline" onClick={handleImport} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Import Backup
-          </Button>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="strategies">
+        <TabsList className="rounded-full bg-zinc-100 dark:bg-zinc-800/60 p-1">
+          <TabsTrigger
+            value="strategies"
+            className="rounded-full data-[active]:bg-zinc-900 dark:data-[active]:bg-zinc-50 data-[active]:text-white dark:data-[active]:text-zinc-900 text-zinc-500 dark:text-zinc-400 px-4 py-1.5 text-xs font-semibold gap-1.5"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Strategies
+          </TabsTrigger>
+          <TabsTrigger
+            value="data"
+            className="rounded-full data-[active]:bg-zinc-900 dark:data-[active]:bg-zinc-50 data-[active]:text-white dark:data-[active]:text-zinc-900 text-zinc-500 dark:text-zinc-400 px-4 py-1.5 text-xs font-semibold gap-1.5"
+          >
+            <Database className="h-3.5 w-3.5" />
+            Data
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="strategies" className="mt-6">
+          <StrategyViewer />
+        </TabsContent>
+
+        <TabsContent value="data" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Management</CardTitle>
+              <CardDescription>
+                Export your trading journal data for backup or import previous backups to restore your data
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-4">
+              <Button onClick={handleExport} className="gap-2 rounded-full">
+                <Download className="h-4 w-4" />
+                Export All Data
+              </Button>
+              <Button variant="outline" onClick={handleImport} className="gap-2 rounded-full">
+                <Upload className="h-4 w-4" />
+                Import Backup
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
