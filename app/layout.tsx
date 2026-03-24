@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WWA Trading Journal",
-  description: "Personal trading journal for the WWA Trading Strategy",
+  title: "my trading Journal",
+  description: "Personal trading journal for my strategy",
 };
 
 export default function RootLayout({
