@@ -249,13 +249,13 @@ export function StrategyViewer() {
               {files.length} document{files.length !== 1 ? "s" : ""} available
             </p>
           </div>
-          <button
+          {/* <button
             onClick={() => setDialogOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 text-xs font-semibold shadow-sm transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             New Strategy
-          </button>
+          </button> */}
         </div>
 
         {files.length === 0 ? (
