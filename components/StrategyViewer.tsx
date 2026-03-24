@@ -3,7 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, ChevronRight, ArrowLeft, BookOpen } from "lucide-react";
+import { FileText, ChevronRight, ArrowLeft, BookOpen, Plus } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 type StrategyFile = {
   name: string;
@@ -116,7 +129,12 @@ export function StrategyViewer() {
   const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
 
-  useEffect(() => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const fetchFiles = useCallback(() => {
     fetch("/api/strategies")
       .then((res) => res.json())
       .then((data) => {
@@ -125,6 +143,10 @@ export function StrategyViewer() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
 
   const loadFile = useCallback(async (fileName: string) => {
     setContentLoading(true);
@@ -140,6 +162,38 @@ export function StrategyViewer() {
     }
   }, []);
 
+  const handleSave = async () => {
+    if (!newTitle.trim() || !newContent.trim()) {
+      toast.error("Title and content are required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/strategies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle.trim(), content: newContent.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to save");
+      }
+
+      toast.success("Strategy saved!");
+      setDialogOpen(false);
+      setNewTitle("");
+      setNewContent("");
+      fetchFiles();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save strategy");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-12">
@@ -148,22 +202,6 @@ export function StrategyViewer() {
             <BookOpen className="h-6 w-6 text-zinc-300 dark:text-zinc-600 animate-pulse" />
           </div>
           <p className="text-sm text-zinc-400">Loading strategies...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (files.length === 0) {
-    return (
-      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-12">
-        <div className="flex flex-col items-center justify-center gap-3">
-          <div className="h-14 w-14 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
-            <BookOpen className="h-6 w-6 text-zinc-300 dark:text-zinc-600" />
-          </div>
-          <p className="text-sm text-zinc-400">No strategy documents found</p>
-          <p className="text-[10px] text-zinc-300 dark:text-zinc-600">
-            Add .md files to the strategy-docs/ directory
-          </p>
         </div>
       </div>
     );
@@ -202,37 +240,119 @@ export function StrategyViewer() {
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-      <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-          Strategy Documents
-        </p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
-          {files.length} document{files.length !== 1 ? "s" : ""} available
-        </p>
-      </div>
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {files.map((file) => (
+    <>
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+        <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+              Strategy Documents
+            </p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+              {files.length} document{files.length !== 1 ? "s" : ""} available
+            </p>
+          </div>
           <button
-            key={file.name}
-            onClick={() => loadFile(file.name)}
-            className="w-full flex items-center gap-4 px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left group"
+            onClick={() => setDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
           >
-            <div className="h-10 w-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-zinc-400 dark:text-zinc-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">
-                {formatSlug(file.slug)}
-              </p>
-              <p className="text-[10px] text-zinc-300 dark:text-zinc-600 mt-0.5">
-                {file.name}
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors shrink-0" />
+            <Plus className="h-3.5 w-3.5" />
+            New Strategy
           </button>
-        ))}
+        </div>
+
+        {files.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="h-14 w-14 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+              <BookOpen className="h-6 w-6 text-zinc-300 dark:text-zinc-600" />
+            </div>
+            <p className="text-sm text-zinc-400">No strategy documents yet</p>
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+            >
+              Create Your First Strategy
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {files.map((file) => (
+              <button
+                key={file.name}
+                onClick={() => loadFile(file.name)}
+                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                  <FileText className="h-5 w-5 text-zinc-400 dark:text-zinc-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">
+                    {formatSlug(file.slug)}
+                  </p>
+                  <p className="text-[10px] text-zinc-300 dark:text-zinc-600 mt-0.5">
+                    {file.name}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Strategy</DialogTitle>
+            <DialogDescription>
+              Write a strategy document in Markdown. It will be saved to strategy-docs/.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                Title
+              </Label>
+              <Input
+                placeholder="e.g. Hidden Sweep Strategy"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="h-9 text-sm rounded-lg border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                Content (Markdown)
+              </Label>
+              <Textarea
+                placeholder="# Strategy Name&#10;&#10;## Overview&#10;&#10;Describe your strategy here..."
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                className="min-h-[240px] text-sm rounded-lg border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setNewTitle("");
+                setNewContent("");
+              }}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !newTitle.trim() || !newContent.trim()}
+              className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {saving ? "Saving..." : "Save Strategy"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
