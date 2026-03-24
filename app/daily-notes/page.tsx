@@ -19,10 +19,13 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Save,
   Pencil,
   Trash2,
   FileText,
+  List,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +54,9 @@ export default function DailyNotesPage() {
   const [notes, setNotes] = useState("");
   const [screenshots, setScreenshots] = useState<Id<"_storage">[]>([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isNotesListOpen, setIsNotesListOpen] = useState(false);
 
+  const allNotes = useQuery(api.dailyNotes.list);
   const existingNote = useQuery(api.dailyNotes.getByDate, {
     date: selectedDate,
   });
@@ -114,9 +119,62 @@ export default function DailyNotesPage() {
 
   const hasContent = existingNote || isEditing;
 
+  const formatNoteDate = (dateStr: string): string => {
+    const date = new Date(dateStr + "T00:00:00");
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 pb-16">
+      <div className="max-w-6xl mx-auto px-6 py-8 pb-16 flex gap-6">
+        {/* Collapsible Notes List Sidebar */}
+        <div className="shrink-0">
+          <button
+            onClick={() => setIsNotesListOpen(!isNotesListOpen)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 transition-colors"
+          >
+            <List className="h-4 w-4" />
+            <span>All Notes</span>
+            {isNotesListOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {isNotesListOpen && allNotes && allNotes.length > 0 && (
+            <div className="mt-2 w-56 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+              <div className="max-h-80 overflow-y-auto">
+                {allNotes.map((note) => (
+                  <button
+                    key={note._id}
+                    onClick={() => {
+                      setSelectedDate(note.date);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-0 ${
+                      selectedDate === note.date
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+                        : "text-zinc-600 dark:text-zinc-300"
+                    }`}
+                  >
+                    <div className="font-medium">{formatNoteDate(note.date)}</div>
+                    <div className="text-xs text-zinc-400 truncate mt-0.5">
+                      {note.notes.slice(0, 50)}
+                      {note.notes.length > 50 ? "..." : ""}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 space-y-6">
         {/* Header with date navigation */}
         <div className="flex items-center justify-between">
           <div>
@@ -311,6 +369,7 @@ export default function DailyNotesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
     </div>
   );
