@@ -56,6 +56,13 @@ type DayData = {
   breakevens: number;
 };
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getBiasIcon(bias: string) {
   switch (bias) {
     case "BULLISH": return <TrendingUp className="h-3 w-3" />;
@@ -83,7 +90,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = formatLocalDate(today);
 
   const dayDataMap = useMemo(() => {
     if (!trades || !dailyBiases || !dailyNotes) return new Map<string, DayData>();
@@ -186,7 +193,7 @@ export default function CalendarPage() {
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const date = new Date(currentYear, currentMonth, d);
-      const dateStr = date.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(date);
       days.push({ date, dateStr });
     }
 
