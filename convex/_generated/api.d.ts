@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accounts from "../accounts.js";
 import type * as dailyBias from "../dailyBias.js";
 import type * as dailyNotes from "../dailyNotes.js";
 import type * as trades from "../trades.js";
@@ -21,6 +22,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accounts: typeof accounts;
   dailyBias: typeof dailyBias;
   dailyNotes: typeof dailyNotes;
   trades: typeof trades;
