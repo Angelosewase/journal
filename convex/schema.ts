@@ -2,7 +2,28 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  accounts: defineTable({
+    name: v.string(),
+    startingBalance: v.number(),
+    currentBalance: v.number(),
+    currency: v.string(),
+    leverage: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_name", ["name"]),
+
+  capitalMovements: defineTable({
+    accountId: v.id("accounts"),
+    type: v.union(v.literal("DEPOSIT"), v.literal("WITHDRAWAL")),
+    amount: v.number(),
+    date: v.number(),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_accountId", ["accountId"])
+    .index("by_date", ["date"]),
+
   trades: defineTable({
+    accountId: v.optional(v.id("accounts")),
     createdAt: v.number(),
     updatedAt: v.number(),
     
@@ -134,7 +155,8 @@ export default defineSchema({
     .index("by_session", ["session"])
     .index("by_tradeModel", ["tradeModel"])
     .index("by_winLoss", ["winLossStatus"])
-    .index("by_environment", ["environment"]),
+    .index("by_environment", ["environment"])
+    .index("by_accountId", ["accountId"]),
 
   dailyBias: defineTable({
     date: v.string(),

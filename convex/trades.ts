@@ -31,6 +31,7 @@ export const get = query({
 
 export const create = mutation({
   args: {
+    accountId: v.optional(v.id("accounts")),
     instrument: v.string(),
     direction: v.union(v.literal("LONG"), v.literal("SHORT")),
     entryPrice: v.number(),
