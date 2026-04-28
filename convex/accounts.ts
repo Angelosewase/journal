@@ -127,6 +127,9 @@ export const getAccountSummary = query({
       .filter((m) => m.type === "WITHDRAWAL")
       .reduce((sum, m) => sum + m.amount, 0);
 
+    const tradesWithPnl = trades.filter(t => t.pnl !== undefined);
+    const totalTradePnl = tradesWithPnl.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
     const netProfit =
       account.currentBalance -
       account.startingBalance -
@@ -145,6 +148,7 @@ export const getAccountSummary = query({
       percentReturn: Math.round(percentReturn * 10) / 10,
       totalDeposits: Math.round(totalDeposits * 100) / 100,
       totalWithdrawals: Math.round(totalWithdrawals * 100) / 100,
+      totalTradePnl: Math.round(totalTradePnl * 100) / 100,
     };
   },
 });
@@ -174,6 +178,9 @@ export const getAccountsWithSummary = query({
           .filter((m) => m.type === "WITHDRAWAL")
           .reduce((sum, m) => sum + m.amount, 0);
 
+        const tradesWithPnl = trades.filter(t => t.pnl !== undefined);
+        const totalTradePnl = tradesWithPnl.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
         const netProfit =
           account.currentBalance -
           account.startingBalance -
@@ -192,10 +199,71 @@ export const getAccountsWithSummary = query({
           percentReturn: Math.round(percentReturn * 10) / 10,
           totalDeposits,
           totalWithdrawals,
+          totalTradePnl,
         };
       })
     );
 
     return summaries;
+  },
+});
+
+export const getAccountTrades = query({
+  args: { accountId: v.id("accounts") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("trades")
+      .filter((q) => q.eq(q.field("accountId"), args.accountId))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const getAccountEquityCurve = query({
+  args: { accountId: v.id("accounts") },
+  handler: async (ctx, args) => {
+    const account = await ctx.db.get(args.accountId);
+    if (!account) return [];
+
+    const trades = await ctx.db
+      .query("trades")
+      .filter((q) => q.eq(q.field("accountId"), args.accountId))
+      .order("asc")
+      .collect();
+
+    const movements = await ctx.db
+      .query("capitalMovements")
+      .filter((q) => q.eq(q.field("accountId"), args.accountId))
+      .order("asc")
+      .collect();
+
+    let equity = account.startingBalance;
+    const data: { date: number; equity: number; label: string }[] = [{ date: account.createdAt, equity, label: "Start" }];
+
+    for (const trade of trades) {
+      if (trade.pnl !== undefined) {
+        equity += trade.pnl;
+        data.push({
+          date: trade.createdAt,
+          equity: Math.round(equity * 100) / 100,
+          label: `${trade.instrument} ${trade.direction}`,
+        });
+      }
+    }
+
+    for (const movement of movements) {
+      if (movement.type === "DEPOSIT") {
+        equity += movement.amount;
+      } else {
+        equity -= movement.amount;
+      }
+      data.push({
+        date: movement.date,
+        equity: Math.round(equity * 100) / 100,
+        label: movement.type,
+      });
+    }
+
+    return data;
   },
 });

@@ -14,6 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -23,6 +31,8 @@ export default function AccountDetailPage() {
   const account = useQuery(api.accounts.get, { id: accountId });
   const summary = useQuery(api.accounts.getAccountSummary, { accountId });
   const movements = useQuery(api.accounts.getCapitalMovements, { accountId });
+  const trades = useQuery(api.accounts.getAccountTrades, { accountId });
+  const equityCurve = useQuery(api.accounts.getAccountEquityCurve, { accountId });
   
   const removeAccount = useMutation(api.accounts.remove);
   const addMovement = useMutation(api.accounts.addCapitalMovement);
@@ -252,6 +262,104 @@ export default function AccountDetailPage() {
               <p className="text-sm text-zinc-400 dark:text-zinc-500">No capital movements recorded.</p>
             )}
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Equity Curve</h3>
+          {equityCurve && equityCurve.length > 1 ? (
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={equityCurve}>
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    stroke="#71717a"
+                    fontSize={10}
+                  />
+                  <YAxis 
+                    stroke="#71717a"
+                    fontSize={10}
+                    tickFormatter={(v) => `${account.currency}${v}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ 
+                      backgroundColor: "rgb(24 24 27)", 
+                      border: "1px solid rgb(3 3 3)", 
+                      borderRadius: "8px",
+                      fontSize: "12px"
+                    }}
+                    labelFormatter={(v) => new Date(Number(v)).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    formatter={(v) => [`${account.currency}${Number(v).toFixed(2)}`, "Equity"]}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="equity" 
+                    stroke={(summary?.netProfit ?? 0) >= 0 ? "#10b981" : "#ef4444"} 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">Not enough data for equity curve.</p>
+          )}
+        </div>
+
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Trades</h3>
+          {trades && trades.length > 0 ? (
+            <div className="rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-zinc-50 dark:bg-zinc-800/60 border-0">
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Date</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Instrument</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Dir</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2 text-right">P&L</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2 text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {trades.slice(0, 10).map((trade: any) => (
+                    <TableRow key={trade._id} className="border-zinc-100 dark:border-zinc-800 cursor-pointer" onClick={() => router.push(`/trades/${trade._id}`)}>
+                      <TableCell className="text-xs text-zinc-600 dark:text-zinc-300 py-2">
+                        {new Date(trade.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 py-2">
+                        {trade.instrument}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          trade.direction === "LONG"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}>
+                          {trade.direction}
+                        </span>
+                      </TableCell>
+                      <TableCell className={`text-right text-xs font-semibold py-2 ${(trade.pnl || 0) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        {trade.pnl !== undefined ? `${trade.pnl >= 0 ? "+" : ""}${account.currency}${trade.pnl.toFixed(2)}` : "-"}
+                      </TableCell>
+                      <TableCell className="text-right py-2">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          trade.winLossStatus === "WIN"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : trade.winLossStatus === "LOSS"
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        }`}>
+                          {trade.winLossStatus || "OPEN"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-400 dark:text-zinc-500">No trades recorded for this account.</p>
+          )}
         </div>
 
         {showForm && (
