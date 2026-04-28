@@ -6,7 +6,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AccountForm } from "@/components/AccountForm";
-import { EquityCurveChart } from "@/components/EquityCurveChart";
 import {
   Table,
   TableBody,
@@ -15,6 +14,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -109,17 +119,27 @@ export default function AccountDetailPage() {
 
         {summary && (
           <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-6 py-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-zinc-100 dark:divide-zinc-800">
+            <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-zinc-100 dark:divide-zinc-800">
               <div className="pr-6">
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                    Current Balance
+                  </p>
+                  <p className="text-3xl font-bold leading-none text-zinc-900 dark:text-zinc-50">
+                    {account.currency}{summary.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+              <div className="px-6">
                 <div className="flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                     Net Profit
                   </p>
-                  <p className={`text-4xl font-bold leading-none ${summary.netProfit >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                  <p className={`text-3xl font-bold leading-none ${summary.netProfit >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                     {summary.netProfit >= 0 ? "+" : ""}{account.currency}{summary.netProfit.toFixed(2)}
                   </p>
                   <p className="text-[10px] text-zinc-300 dark:text-zinc-600 mt-1 leading-tight">
-                    Current - Starting - Deposits + Withdrawals
+                    Trade P&L: {summary.totalTradePnl >= 0 ? "+" : ""}{account.currency}{summary.totalTradePnl.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -128,7 +148,7 @@ export default function AccountDetailPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
                     % Return
                   </p>
-                  <p className={`text-4xl font-bold leading-none ${summary.percentReturn >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                  <p className={`text-3xl font-bold leading-none ${summary.percentReturn >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                     {summary.percentReturn >= 0 ? "+" : ""}{summary.percentReturn.toFixed(1)}%
                   </p>
                 </div>
@@ -136,20 +156,20 @@ export default function AccountDetailPage() {
               <div className="px-6">
                 <div className="flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                    Current Balance
+                    Deposits
                   </p>
-                  <p className="text-4xl font-bold leading-none text-zinc-900 dark:text-zinc-50">
-                    {account.currency}{(summary?.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <p className="text-3xl font-bold leading-none text-emerald-600">
+                    +{account.currency}{summary.totalDeposits.toFixed(2)}
                   </p>
                 </div>
               </div>
               <div className="pl-6">
                 <div className="flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                    Trades
+                    Withdrawals
                   </p>
-                  <p className="text-4xl font-bold leading-none text-zinc-900 dark:text-zinc-50">
-                    {summary.totalTrades}
+                  <p className="text-3xl font-bold leading-none text-red-500">
+                    -{account.currency}{summary.totalWithdrawals.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -159,15 +179,7 @@ export default function AccountDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Capital Overview</h3>
-              <button
-                onClick={() => setShowMovementForm(true)}
-                className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors"
-              >
-                + Add Movement
-              </button>
-            </div>
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Capital Overview</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
@@ -179,18 +191,26 @@ export default function AccountDetailPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
-                  Deposits
+                  Total Deposits
                 </span>
                 <span className="text-sm font-semibold text-emerald-600">
-                  +{account.currency}{summary?.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                  +{account.currency}{(summary?.totalDeposits ?? 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
-                  Withdrawals
+                  Total Withdrawals
                 </span>
                 <span className="text-sm font-semibold text-red-500">
-                  -{account.currency}{summary?.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                  -{account.currency}{(summary?.totalWithdrawals ?? 0).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                  Trade P&L
+                </span>
+                <span className={`text-sm font-semibold ${(summary?.totalTradePnl ?? 0) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                  {(summary?.totalTradePnl ?? 0) >= 0 ? "+" : ""}{account.currency}{(summary?.totalTradePnl ?? 0).toFixed(2)}
                 </span>
               </div>
               <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
@@ -199,14 +219,22 @@ export default function AccountDetailPage() {
                   Current Balance
                 </span>
                 <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                  {account.currency}{(summary?.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {account.currency}{(summary?.currentBalance ?? 0).toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
-            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Capital Movements</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Capital Movements</h3>
+              <button
+                onClick={() => setShowMovementForm(true)}
+                className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors"
+              >
+                + Add
+              </button>
+            </div>
             {movements && movements.length > 0 ? (
               <div className="rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
                 <Table>
@@ -260,18 +288,64 @@ export default function AccountDetailPage() {
         <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Equity Curve</h3>
           {equityCurve && equityCurve.length > 1 ? (
-            <EquityCurveChart 
-              data={equityCurve} 
-              currency={account.currency} 
-              isPositive={(summary?.netProfit ?? 0) >= 0} 
-            />
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={(summary?.netProfit ?? 0) >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={(summary?.netProfit ?? 0) >= 0 ? "#10b981" : "#ef4444"} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    stroke="#71717a"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis 
+                    stroke="#71717a"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `${account.currency}${v}`}
+                    width={70}
+                  />
+                  <Tooltip
+                    contentStyle={{ 
+                      backgroundColor: "rgb(24 24 27)", 
+                      border: "1px solid rgb(63 63 63)", 
+                      borderRadius: "8px",
+                      fontSize: "12px"
+                    }}
+                    labelStyle={{ color: "#e4e4e7", marginBottom: "4px" }}
+                    labelFormatter={(v) => new Date(Number(v)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                    formatter={(v) => [`${account.currency}${Number(v).toFixed(2)}`, "Equity"]}
+                    itemStyle={{ color: "#e4e4e7" }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="equity" 
+                    stroke={(summary?.netProfit ?? 0) >= 0 ? "#10b981" : "#ef4444"}
+                    strokeWidth={2.5}
+                    fill="url(#equityGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <p className="text-sm text-zinc-400 dark:text-zinc-500">Not enough data for equity curve.</p>
           )}
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Trades</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Trades</h3>
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">{trades?.length || 0} total trades</span>
+          </div>
           {trades && trades.length > 0 ? (
             <div className="rounded-xl overflow-hidden border border-zinc-100 dark:border-zinc-800">
               <Table>
@@ -280,13 +354,14 @@ export default function AccountDetailPage() {
                     <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Date</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Instrument</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2">Dir</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2 text-right">Entry / Exit</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2 text-right">P&L</TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 py-2 text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {trades.slice(0, 10).map((trade: any) => (
-                    <TableRow key={trade._id} className="border-zinc-100 dark:border-zinc-800 cursor-pointer" onClick={() => router.push(`/trades/${trade._id}`)}>
+                  {trades.slice(0, 15).map((trade: any) => (
+                    <TableRow key={trade._id} className="border-zinc-100 dark:border-zinc-800 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/40" onClick={() => router.push(`/trades/${trade._id}`)}>
                       <TableCell className="text-xs text-zinc-600 dark:text-zinc-300 py-2">
                         {new Date(trade.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </TableCell>
@@ -301,6 +376,9 @@ export default function AccountDetailPage() {
                         }`}>
                           {trade.direction}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-zinc-600 dark:text-zinc-300 py-2">
+                        {trade.entryPrice} / {trade.exitPrice || "Open"}
                       </TableCell>
                       <TableCell className={`text-right text-xs font-semibold py-2 ${(trade.pnl || 0) >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                         {trade.pnl !== undefined ? `${trade.pnl >= 0 ? "+" : ""}${account.currency}${trade.pnl.toFixed(2)}` : "-"}
@@ -365,16 +443,6 @@ export default function AccountDetailPage() {
                     onChange={(e) => setNewMovement({ ...newMovement, amount: e.target.value })}
                     className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                     placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">Note (optional)</label>
-                  <input
-                    type="text"
-                    value={newMovement.note}
-                    onChange={(e) => setNewMovement({ ...newMovement, note: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                    placeholder="Optional note..."
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
