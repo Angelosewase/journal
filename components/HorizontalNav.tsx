@@ -24,10 +24,12 @@ import {
   Menu,
   Computer,
   StickyNote,
+  Wallet,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Today", icon: Calendar },
+  { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/trades", label: "Trade Log", icon: ClipboardList },
   { href: "/daily-notes", label: "Notes", icon: StickyNote },

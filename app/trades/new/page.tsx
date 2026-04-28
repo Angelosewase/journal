@@ -132,7 +132,7 @@ export default function NewTradePage() {
     e.preventDefault();
     try {
       await createTrade({
-        accountId: formData.accountId ? formData.accountId as Id<"accounts"> : undefined,
+        accountId: formData.accountId && formData.accountId !== "__none__" ? formData.accountId as Id<"accounts"> : undefined,
         instrument: formData.instrument,
         direction: formData.direction,
         entryPrice: Number(formData.entryPrice),
@@ -377,7 +377,7 @@ function StepContent({
               <Select value={formData.accountId} onValueChange={(v) => update("accountId", v)}>
                 <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Account</SelectItem>
+                  <SelectItem value="__none__">No Account</SelectItem>
                   {accounts?.map((a: { _id: string; name: string }) => (
                     <SelectItem key={a._id} value={String(a._id)}>{a.name}</SelectItem>
                   ))}
