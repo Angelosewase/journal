@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +38,11 @@ const steps = [
 export default function NewTradePage() {
   const router = useRouter();
   const createTrade = useMutation(api.trades.create);
+  const accounts = useQuery(api.accounts.list) as { _id: string; name: string }[] | undefined;
 
   const [activeStep, setActiveStep] = useState("basic");
   const [formData, setFormData] = useState({
+    accountId: "" as string,
     instrument: "EUR/USD",
     direction: "LONG" as "LONG" | "SHORT",
     entryPrice: "",
@@ -130,6 +132,7 @@ export default function NewTradePage() {
     e.preventDefault();
     try {
       await createTrade({
+        accountId: formData.accountId ? formData.accountId as Id<"accounts"> : undefined,
         instrument: formData.instrument,
         direction: formData.direction,
         entryPrice: Number(formData.entryPrice),
@@ -306,6 +309,7 @@ export default function NewTradePage() {
               step={activeStep}
               formData={formData}
               setFormData={setFormData}
+              accounts={accounts || []}
             />
 
             <div className="flex items-center justify-between pt-2">
@@ -350,10 +354,12 @@ function StepContent({
   step,
   formData,
   setFormData,
+  accounts,
 }: {
   step: string;
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
+  accounts: { _id: string; name: string }[];
 }) {
   const update = (key: string, value: any) => setFormData({ ...formData, [key]: value });
 
@@ -366,6 +372,18 @@ function StepContent({
             <CardDescription>Core trade details</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Account</Label>
+              <Select value={formData.accountId} onValueChange={(v) => update("accountId", v)}>
+                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Account</SelectItem>
+                  {accounts?.map((a: { _id: string; name: string }) => (
+                    <SelectItem key={a._id} value={String(a._id)}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Instrument</Label>
               <Select value={formData.instrument} onValueChange={(v) => update("instrument", v)}>

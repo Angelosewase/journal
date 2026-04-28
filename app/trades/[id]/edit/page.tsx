@@ -40,6 +40,7 @@ export default function EditTradePage() {
   const params = useParams();
   const tradeId = params.id as Id<"trades">;
   const trade = useQuery(api.trades.get, { id: tradeId });
+  const accounts = useQuery(api.accounts.list) as { _id: string; name: string }[] | undefined;
   const updateTrade = useMutation(api.trades.update);
 
   const [activeStep, setActiveStep] = useState("basic");
@@ -48,6 +49,7 @@ export default function EditTradePage() {
   useEffect(() => {
     if (trade) {
       setFormData({
+        accountId: trade.accountId || "",
         instrument: trade.instrument || "EUR/USD",
         direction: trade.direction || "LONG",
         entryPrice: String(trade.entryPrice ?? ""),
@@ -141,6 +143,7 @@ export default function EditTradePage() {
       await updateTrade({
         id: tradeId,
         updates: {
+          accountId: formData.accountId ? formData.accountId as Id<"accounts"> : undefined,
           instrument: formData.instrument,
           direction: formData.direction,
           entryPrice: Number(formData.entryPrice),
@@ -306,6 +309,7 @@ export default function EditTradePage() {
               step={activeStep}
               formData={formData}
               setFormData={setFormData}
+              accounts={accounts || []}
             />
 
             <div className="flex items-center justify-between pt-2">
@@ -350,10 +354,12 @@ function StepContent({
   step,
   formData,
   setFormData,
+  accounts,
 }: {
   step: string;
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
+  accounts: { _id: string; name: string }[];
 }) {
   const update = (key: string, value: any) => setFormData({ ...formData, [key]: value });
 
@@ -366,6 +372,18 @@ function StepContent({
             <CardDescription>Core trade details</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Account</Label>
+              <Select value={formData.accountId} onValueChange={(v) => update("accountId", v)}>
+                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Account</SelectItem>
+                  {accounts?.map((a: { _id: string; name: string }) => (
+                    <SelectItem key={a._id} value={a._id as string}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Instrument</Label>
               <Select value={formData.instrument} onValueChange={(v) => update("instrument", v)}>
