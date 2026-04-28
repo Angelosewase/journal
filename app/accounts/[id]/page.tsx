@@ -6,6 +6,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AccountForm } from "@/components/AccountForm";
+import { EquityCurveChart } from "@/components/EquityCurveChart";
 import {
   Table,
   TableBody,
@@ -14,14 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -146,7 +139,7 @@ export default function AccountDetailPage() {
                     Current Balance
                   </p>
                   <p className="text-4xl font-bold leading-none text-zinc-900 dark:text-zinc-50">
-                    {account.currency}{account.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {account.currency}{(summary?.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -206,7 +199,7 @@ export default function AccountDetailPage() {
                   Current Balance
                 </span>
                 <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                  {account.currency}{account.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {account.currency}{(summary?.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
@@ -267,40 +260,11 @@ export default function AccountDetailPage() {
         <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-5">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Equity Curve</h3>
           {equityCurve && equityCurve.length > 1 ? (
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={equityCurve}>
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    stroke="#71717a"
-                    fontSize={10}
-                  />
-                  <YAxis 
-                    stroke="#71717a"
-                    fontSize={10}
-                    tickFormatter={(v) => `${account.currency}${v}`}
-                  />
-                  <Tooltip
-                    contentStyle={{ 
-                      backgroundColor: "rgb(24 24 27)", 
-                      border: "1px solid rgb(3 3 3)", 
-                      borderRadius: "8px",
-                      fontSize: "12px"
-                    }}
-                    labelFormatter={(v) => new Date(Number(v)).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    formatter={(v) => [`${account.currency}${Number(v).toFixed(2)}`, "Equity"]}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="equity" 
-                    stroke={(summary?.netProfit ?? 0) >= 0 ? "#10b981" : "#ef4444"} 
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <EquityCurveChart 
+              data={equityCurve} 
+              currency={account.currency} 
+              isPositive={(summary?.netProfit ?? 0) >= 0} 
+            />
           ) : (
             <p className="text-sm text-zinc-400 dark:text-zinc-500">Not enough data for equity curve.</p>
           )}

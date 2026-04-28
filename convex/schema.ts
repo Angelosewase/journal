@@ -5,7 +5,6 @@ export default defineSchema({
   accounts: defineTable({
     name: v.string(),
     startingBalance: v.number(),
-    currentBalance: v.number(),
     currency: v.string(),
     leverage: v.optional(v.number()),
     createdAt: v.number(),

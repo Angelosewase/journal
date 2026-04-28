@@ -11,7 +11,6 @@ interface AccountFormProps {
     _id: Id<"accounts">;
     name: string;
     startingBalance: number;
-    currentBalance: number;
     currency: string;
     leverage?: number;
   };
@@ -26,7 +25,6 @@ export function AccountForm({ onClose, account }: AccountFormProps) {
   const [formData, setFormData] = useState({
     name: account?.name || "",
     startingBalance: account?.startingBalance || 1000,
-    currentBalance: account?.currentBalance || 1000,
     currency: account?.currency || "USD",
     leverage: account?.leverage || "",
   });
@@ -41,7 +39,6 @@ export function AccountForm({ onClose, account }: AccountFormProps) {
       const data = {
         name: formData.name,
         startingBalance: Number(formData.startingBalance),
-        currentBalance: Number(formData.currentBalance),
         currency: formData.currency,
         leverage: formData.leverage ? Number(formData.leverage) : undefined,
       };
@@ -105,22 +102,6 @@ export function AccountForm({ onClose, account }: AccountFormProps) {
                 required
               />
             </div>
-            <div>
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
-                Current Balance
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.currentBalance}
-                onChange={(e) => setFormData({ ...formData, currentBalance: Number(e.target.value) })}
-                className="mt-1.5 w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
                 Currency

@@ -19,14 +19,16 @@ export const create = mutation({
   args: {
     name: v.string(),
     startingBalance: v.number(),
-    currentBalance: v.number(),
     currency: v.string(),
     leverage: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     return await ctx.db.insert("accounts", {
-      ...args,
+      name: args.name,
+      startingBalance: args.startingBalance,
+      currency: args.currency,
+      leverage: args.leverage,
       createdAt: now,
       updatedAt: now,
     });
@@ -130,11 +132,13 @@ export const getAccountSummary = query({
     const tradesWithPnl = trades.filter(t => t.pnl !== undefined);
     const totalTradePnl = tradesWithPnl.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-    const netProfit =
-      account.currentBalance -
-      account.startingBalance -
+    const currentBalance =
+      account.startingBalance +
       totalDeposits +
+      totalTradePnl -
       totalWithdrawals;
+
+    const netProfit = currentBalance - account.startingBalance;
 
     const percentReturn =
       account.startingBalance > 0
@@ -143,6 +147,7 @@ export const getAccountSummary = query({
 
     return {
       account,
+      currentBalance,
       totalTrades: trades.length,
       netProfit: Math.round(netProfit * 100) / 100,
       percentReturn: Math.round(percentReturn * 10) / 10,
@@ -181,11 +186,13 @@ export const getAccountsWithSummary = query({
         const tradesWithPnl = trades.filter(t => t.pnl !== undefined);
         const totalTradePnl = tradesWithPnl.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-        const netProfit =
-          account.currentBalance -
-          account.startingBalance -
+        const currentBalance =
+          account.startingBalance +
           totalDeposits +
+          totalTradePnl -
           totalWithdrawals;
+
+        const netProfit = currentBalance - account.startingBalance;
 
         const percentReturn =
           account.startingBalance > 0
@@ -194,12 +201,13 @@ export const getAccountsWithSummary = query({
 
         return {
           ...account,
+          currentBalance,
           totalTrades: trades.length,
           netProfit: Math.round(netProfit * 100) / 100,
           percentReturn: Math.round(percentReturn * 10) / 10,
           totalDeposits,
           totalWithdrawals,
-          totalTradePnl,
+          totalTradePnl: Math.round(totalTradePnl * 100) / 100,
         };
       })
     );

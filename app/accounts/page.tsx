@@ -20,6 +20,7 @@ interface AccountWithSummary {
   percentReturn: number;
   totalDeposits: number;
   totalWithdrawals: number;
+  totalTradePnl: number;
 }
 
 export default function AccountsPage() {
@@ -98,7 +99,7 @@ export default function AccountsPage() {
                       Current Balance
                     </span>
                     <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                      {account.currency}{account.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {account.currency}{(account.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between">
