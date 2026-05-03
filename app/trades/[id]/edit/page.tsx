@@ -35,6 +35,12 @@ const steps = [
   { id: "screenshots", label: "Screenshots", short: "Screenshots" },
 ];
 
+const REQUIRED_FIELDS = ["instrument", "direction", "entryPrice", "stopLossPrice", "riskAmount"];
+
+function isTradeComplete(formData: any): boolean {
+  return REQUIRED_FIELDS.every(field => formData[field] && formData[field] !== "");
+}
+
 export default function EditTradePage() {
   const router = useRouter();
   const params = useParams();
@@ -47,7 +53,7 @@ export default function EditTradePage() {
   const [formData, setFormData] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (trade) {
+    if (trade && Object.keys(formData).length === 0) {
       setFormData({
         accountId: trade.accountId || "",
         instrument: trade.instrument || "EUR/USD",
@@ -72,6 +78,7 @@ export default function EditTradePage() {
         inducementResting: trade.inducementResting || "",
         inducementType: trade.inducementType || "",
         distanceFromPoi: String(trade.distanceFromPoi ?? ""),
+        liquidityPoolDescription: trade.liquidityPoolDescription || "",
         cleanBreak: trade.cleanBreak ?? false,
         breakSize: String(trade.breakSize ?? ""),
         trapSwept: trade.trapSwept || "NO",
@@ -79,6 +86,9 @@ export default function EditTradePage() {
         trapLocation: String(trade.trapLocation ?? ""),
         trapTappedCount: String(trade.trapTappedCount ?? ""),
         trapCleanliness: trade.trapCleanliness || "",
+        liquidityEngineering: trade.liquidityEngineering || "",
+        liquidityTappedCount: String(trade.liquidityTappedCount ?? ""),
+        retailBehavior: trade.retailBehavior || "",
         missingInducement: trade.missingInducement ?? false,
         ltfEntryTimeframe: trade.ltfEntryTimeframe || "5M",
         smcType: trade.smcType || "",
@@ -104,16 +114,26 @@ export default function EditTradePage() {
         riskPercentage: String(trade.riskPercentage ?? "1"),
         target1RR: String(trade.target1RR ?? "3"),
         target2RR: String(trade.target2RR ?? "10"),
+        target1Price: String(trade.target1Price ?? ""),
+        target2Price: String(trade.target2Price ?? ""),
         timeInTradeMinutes: String(trade.timeInTradeMinutes ?? ""),
         maxProfitReached: String(trade.maxProfitReached ?? ""),
         maxDrawdown: String(trade.maxDrawdown ?? ""),
         target1Hit: trade.target1Hit ?? false,
+        target1HitPrice: String(trade.target1HitPrice ?? ""),
         stopMovedToBE: trade.stopMovedToBE ?? false,
+        timeToTarget1: String(trade.timeToTarget1 ?? ""),
         target2Status: trade.target2Status || "",
+        target2ClosedAt: String(trade.target2ClosedAt ?? ""),
+        finalRR: String(trade.finalRR ?? ""),
+        timeToClose: String(trade.timeToClose ?? ""),
+        breakEvenStopsMoved: trade.breakEvenStopsMoved ?? false,
         manualExit: trade.manualExit ?? false,
         manualExitReason: trade.manualExitReason || "",
+        manualExitAligned: trade.manualExitAligned ?? false,
         tradeClosureReason: trade.tradeClosureReason || "OPEN",
         pnl: String(trade.pnl ?? ""),
+        pnlPercentage: String(trade.pnlPercentage ?? ""),
         winLossStatus: trade.winLossStatus || "BREAK_EVEN",
         tradeQualityScore: String(trade.tradeQualityScore ?? "5"),
         poiQualityRating: trade.poiQualityRating || "ACCEPTABLE",
@@ -123,10 +143,14 @@ export default function EditTradePage() {
         disciplineRating: trade.disciplineRating || "MINOR_RUSH",
         whyEntered: trade.whyEntered || "",
         playedAsExpected: trade.playedAsExpected ?? true,
+        expansionDescription: trade.expansionDescription || "",
+        surpriseDescription: trade.surpriseDescription || "",
         whatWentWrong: trade.whatWentWrong || "",
         whatWentRight: trade.whatWentRight || "",
         institutionalLessons: trade.institutionalLessons || "",
+        howAffectsNext: trade.howAffectsNext || "",
         followedTrinity: trade.followedTrinity ?? true,
+        trinityViolationExplanation: trade.trinityViolationExplanation || "",
         correctKillzone: trade.correctKillzone ?? true,
         respectedHTFNarrative: trade.respectedHTFNarrative ?? true,
         waitedForInducement: trade.waitedForInducement ?? true,
@@ -247,6 +271,133 @@ export default function EditTradePage() {
   const currentStepIndex = steps.findIndex((s) => s.id === activeStep);
   const canGoBack = currentStepIndex > 0;
   const canGoForward = currentStepIndex < steps.length - 1;
+  const isReflectionStep = activeStep === "reflection";
+  const isComplete = isTradeComplete(formData);
+
+  const handleUpdate = async (skipAutoSave?: boolean) => {
+    try {
+      await updateTrade({
+        id: tradeId,
+        updates: {
+          accountId: formData.accountId && formData.accountId !== "__none__" ? formData.accountId as Id<"accounts"> : undefined,
+          instrument: formData.instrument,
+          direction: formData.direction,
+          entryPrice: Number(formData.entryPrice),
+          exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
+          positionSize: Number(formData.positionSize),
+          commission: Number(formData.commission),
+          environment: formData.environment,
+          dailyBias: formData.dailyBias,
+          externalStructure: formData.externalStructure,
+          majorLiquidityPools: formData.majorLiquidityPools,
+          internalStructure: formData.internalStructure,
+          currentRange: formData.currentRange || undefined,
+          minorPushStatus: formData.minorPushStatus || undefined,
+          session: formData.session,
+          isInKillzone: formData.isInKillzone,
+          poiType: formData.poiType,
+          poiQuality: formData.poiQuality,
+          poiDescription: formData.poiDescription || undefined,
+          gapSize: formData.gapSize ? Number(formData.gapSize) : undefined,
+          inducementResting: formData.inducementResting || undefined,
+          inducementType: formData.inducementType || undefined,
+          distanceFromPoi: formData.distanceFromPoi ? Number(formData.distanceFromPoi) : undefined,
+          liquidityPoolDescription: formData.liquidityPoolDescription || undefined,
+          cleanBreak: formData.cleanBreak || undefined,
+          breakSize: formData.breakSize ? Number(formData.breakSize) : undefined,
+          trapSwept: formData.trapSwept,
+          trapType: formData.trapType || undefined,
+          trapLocation: formData.trapLocation ? Number(formData.trapLocation) : undefined,
+          trapTappedCount: formData.trapTappedCount ? Number(formData.trapTappedCount) : undefined,
+          trapCleanliness: formData.trapCleanliness || undefined,
+          liquidityEngineering: formData.liquidityEngineering || undefined,
+          liquidityTappedCount: formData.liquidityTappedCount ? Number(formData.liquidityTappedCount) : undefined,
+          retailBehavior: formData.retailBehavior || undefined,
+          missingInducement: formData.missingInducement,
+          ltfEntryTimeframe: formData.ltfEntryTimeframe || undefined,
+          smcType: formData.smcType || undefined,
+          smsAfterTrap: formData.smsAfterTrap,
+          bmsPattern: formData.bmsPattern || undefined,
+          bmsConfidence: Number(formData.bmsConfidence),
+          rtoApplicable: formData.rtoApplicable,
+          rtoDistance: formData.rtoDistance ? Number(formData.rtoDistance) : undefined,
+          entryConfidence: Number(formData.entryConfidence),
+          tradeModel: formData.tradeModel,
+          narrativeAlignment: formData.narrativeAlignment,
+          tradingWithMainPush: formData.tradingWithMainPush,
+          noNarrativeMisalignment: formData.noNarrativeMisalignment,
+          clearLiquidityEngineering: formData.clearLiquidityEngineering || undefined,
+          institutionsReasoned: formData.institutionsReasoned || undefined,
+          poiMitigationStatus: formData.poiMitigationStatus,
+          approachDynamics: formData.approachDynamics || undefined,
+          stopLossPrice: Number(formData.stopLossPrice),
+          stopLossPlacement: formData.stopLossPlacement,
+          stopLossPips: Number(formData.stopLossPips),
+          stopLossQuality: formData.stopLossQuality,
+          riskAmount: Number(formData.riskAmount),
+          riskPercentage: Number(formData.riskPercentage),
+          target1RR: Number(formData.target1RR),
+          target2RR: Number(formData.target2RR),
+          target1Price: formData.target1Price ? Number(formData.target1Price) : undefined,
+          target2Price: formData.target2Price ? Number(formData.target2Price) : undefined,
+          timeInTradeMinutes: formData.timeInTradeMinutes ? Number(formData.timeInTradeMinutes) : undefined,
+          maxProfitReached: formData.maxProfitReached ? Number(formData.maxProfitReached) : undefined,
+          maxDrawdown: formData.maxDrawdown ? Number(formData.maxDrawdown) : undefined,
+          target1Hit: formData.target1Hit || undefined,
+          target1HitPrice: formData.target1HitPrice ? Number(formData.target1HitPrice) : undefined,
+          stopMovedToBE: formData.stopMovedToBE || undefined,
+          timeToTarget1: formData.timeToTarget1 ? Number(formData.timeToTarget1) : undefined,
+          target2Status: formData.target2Status || undefined,
+          target2ClosedAt: formData.target2ClosedAt ? Number(formData.target2ClosedAt) : undefined,
+          finalRR: formData.finalRR ? Number(formData.finalRR) : undefined,
+          timeToClose: formData.timeToClose ? Number(formData.timeToClose) : undefined,
+          breakEvenStopsMoved: formData.breakEvenStopsMoved || undefined,
+          manualExit: formData.manualExit || undefined,
+          manualExitReason: formData.manualExitReason || undefined,
+          manualExitAligned: formData.manualExitAligned || undefined,
+          tradeClosureReason: formData.tradeClosureReason,
+          pnl: formData.pnl ? Number(formData.pnl) : undefined,
+          pnlPercentage: formData.pnlPercentage ? Number(formData.pnlPercentage) : undefined,
+          winLossStatus: formData.winLossStatus,
+          tradeQualityScore: Number(formData.tradeQualityScore),
+          poiQualityRating: formData.poiQualityRating,
+          inducementQualityRating: formData.inducementQualityRating,
+          trinityAlignmentRating: formData.trinityAlignmentRating,
+          riskExecutionRating: formData.riskExecutionRating,
+          disciplineRating: formData.disciplineRating,
+          whyEntered: formData.whyEntered || undefined,
+          playedAsExpected: formData.playedAsExpected,
+          expansionDescription: formData.expansionDescription || undefined,
+          surpriseDescription: formData.surpriseDescription || undefined,
+          whatWentWrong: formData.whatWentWrong || undefined,
+          whatWentRight: formData.whatWentRight || undefined,
+          institutionalLessons: formData.institutionalLessons || undefined,
+          howAffectsNext: formData.howAffectsNext || undefined,
+          followedTrinity: formData.followedTrinity,
+          trinityViolationExplanation: formData.trinityViolationExplanation || undefined,
+          correctKillzone: formData.correctKillzone,
+          respectedHTFNarrative: formData.respectedHTFNarrative,
+          waitedForInducement: formData.waitedForInducement,
+          managedRiskPerPlan: formData.managedRiskPerPlan,
+          disciplineScore: Number(formData.disciplineScore),
+          screenshots: formData.screenshots.length > 0 ? formData.screenshots : undefined,
+        },
+      });
+      if (!skipAutoSave) {
+        toast.success("Trade updated successfully!");
+        router.push(`/trades/${tradeId}`);
+      }
+    } catch (error) {
+      toast.error("Failed to update trade");
+    }
+  };
+
+  const handleStepChange = (newStep: string) => {
+    if (isReflectionStep && canGoForward) {
+      handleUpdate(true);
+    }
+    setActiveStep(newStep);
+  };
 
   return (
     <div className="space-y-6">
@@ -328,10 +479,17 @@ export default function EditTradePage() {
                 <Button variant="outline" type="button" asChild>
                   <Link href={`/trades/${tradeId}`}>Cancel</Link>
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleUpdate(true)}
+                >
+                  Save Changes
+                </Button>
                 {canGoForward ? (
                   <Button
                     type="button"
-                    onClick={() => setActiveStep(steps[currentStepIndex + 1].id)}
+                    onClick={() => handleStepChange(steps[currentStepIndex + 1].id)}
                   >
                     Next
                   </Button>
@@ -483,6 +641,16 @@ function StepContent({
               <Label>Internal Structure</Label>
               <Textarea value={formData.internalStructure} onChange={(e) => update("internalStructure", e.target.value)} rows={2} />
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Current Range</Label>
+                <Input value={formData.currentRange} onChange={(e) => update("currentRange", e.target.value)} placeholder="e.g. 100 pips" />
+              </div>
+              <div className="space-y-2">
+                <Label>Minor Push Status</Label>
+                <Input value={formData.minorPushStatus} onChange={(e) => update("minorPushStatus", e.target.value)} placeholder="e.g. Continuing, Exhausting" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       );
@@ -543,6 +711,36 @@ function StepContent({
               <Label>POI Description</Label>
               <Textarea value={formData.poiDescription} onChange={(e) => update("poiDescription", e.target.value)} />
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Gap Size (pips)</Label>
+                <Input type="number" step="0.1" value={formData.gapSize} onChange={(e) => update("gapSize", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Break Size (pips)</Label>
+                <Input type="number" step="0.1" value={formData.breakSize} onChange={(e) => update("breakSize", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Inducement Resting</Label>
+                <Input value={formData.inducementResting} onChange={(e) => update("inducementResting", e.target.value)} placeholder="e.g. Above, Below" />
+              </div>
+              <div className="space-y-2">
+                <Label>Inducement Type</Label>
+                <Input value={formData.inducementType} onChange={(e) => update("inducementType", e.target.value)} placeholder="e.g. Double, Stacked" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Distance from POI (pips)</Label>
+                <Input type="number" step="0.1" value={formData.distanceFromPoi} onChange={(e) => update("distanceFromPoi", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Liquidity Pool Description</Label>
+                <Input value={formData.liquidityPoolDescription} onChange={(e) => update("liquidityPoolDescription", e.target.value)} placeholder="Describe the pool..." />
+              </div>
+            </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="cleanBreak" checked={formData.cleanBreak} onCheckedChange={(checked) => update("cleanBreak", !!checked)} />
               <Label htmlFor="cleanBreak">Clean Break (convincing structure break)</Label>
@@ -576,9 +774,35 @@ function StepContent({
                 <Input value={formData.trapType} onChange={(e) => update("trapType", e.target.value)} placeholder="Inducement of Control/Target/SMT" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Trap Location (pips from POI)</Label>
-              <Input type="number" step="0.1" value={formData.trapLocation} onChange={(e) => update("trapLocation", e.target.value)} />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Trap Location (pips from POI)</Label>
+                <Input type="number" step="0.1" value={formData.trapLocation} onChange={(e) => update("trapLocation", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Trap Tapped Count</Label>
+                <Input type="number" value={formData.trapTappedCount} onChange={(e) => update("trapTappedCount", e.target.value)} placeholder="How many times tapped" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Trap Cleanliness</Label>
+                <Input value={formData.trapCleanliness} onChange={(e) => update("trapCleanliness", e.target.value)} placeholder="e.g. Clean, Messy, Stacked" />
+              </div>
+              <div className="space-y-2">
+                <Label>Liquidity Engineering</Label>
+                <Input value={formData.liquidityEngineering} onChange={(e) => update("liquidityEngineering", e.target.value)} placeholder="e.g. Stacked, Swept" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Liquidity Tapped Count</Label>
+                <Input type="number" value={formData.liquidityTappedCount} onChange={(e) => update("liquidityTappedCount", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Retail Behavior</Label>
+                <Input value={formData.retailBehavior} onChange={(e) => update("retailBehavior", e.target.value)} placeholder="e.g. Chasing, Stop hunting" />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="missingInducement" checked={formData.missingInducement} onCheckedChange={(checked) => update("missingInducement", !!checked)} />
@@ -627,10 +851,39 @@ function StepContent({
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>SMG Type</Label>
+                <Input value={formData.smcType} onChange={(e) => update("smcType", e.target.value)} placeholder="e.g. Higher High + Higher Low" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>BMS Pattern</Label>
+                <Input value={formData.bmsPattern} onChange={(e) => update("bmsPattern", e.target.value)} placeholder="e.g. BOS, Change of Character" />
+              </div>
+              <div className="space-y-2">
+                <Label>BMS Confidence (1-10)</Label>
+                <Input type="number" min="1" max="10" value={formData.bmsConfidence} onChange={(e) => update("bmsConfidence", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label>Entry Confidence (1-10)</Label>
                 <Input type="number" min="1" max="10" value={formData.entryConfidence} onChange={(e) => update("entryConfidence", e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label>RTO (Retest) Applicable?</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox id="rtoApplicable" checked={formData.rtoApplicable} onCheckedChange={(checked) => update("rtoApplicable", !!checked)} />
+                  <Label htmlFor="rtoApplicable">Yes</Label>
+                </div>
+              </div>
             </div>
+            {formData.rtoApplicable && (
+              <div className="space-y-2">
+                <Label>RTO Distance (pips)</Label>
+                <Input type="number" step="0.1" value={formData.rtoDistance} onChange={(e) => update("rtoDistance", e.target.value)} />
+              </div>
+            )}
           </CardContent>
         </Card>
       );
@@ -667,6 +920,25 @@ function StepContent({
                 <div className="flex items-center space-x-2">
                   <Checkbox id="noNarrativeMisalignment" checked={formData.noNarrativeMisalignment} onCheckedChange={(checked) => update("noNarrativeMisalignment", !!checked)} />
                   <Label htmlFor="noNarrativeMisalignment">No narrative misalignment</Label>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Clear Liquidity Engineering</Label>
+                <Select value={formData.clearLiquidityEngineering} onValueChange={(v) => update("clearLiquidityEngineering", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CLEAR">CLEAR</SelectItem>
+                    <SelectItem value="UNCLEAR">UNCLEAR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Institutions Reasoned</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox id="institutionsReasoned" checked={formData.institutionsReasoned} onCheckedChange={(checked) => update("institutionsReasoned", !!checked)} />
+                  <Label htmlFor="institutionsReasoned">Yes</Label>
                 </div>
               </div>
             </div>
@@ -721,11 +993,19 @@ function StepContent({
               <Label>Target 2 RR</Label>
               <Input type="number" step="0.1" value={formData.target2RR} onChange={(e) => update("target2RR", e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Target 1 Price</Label>
+              <Input type="number" step="0.00001" value={formData.target1Price} onChange={(e) => update("target1Price", e.target.value)} placeholder="Optional" />
+            </div>
+            <div className="space-y-2">
+              <Label>Target 2 Price</Label>
+              <Input type="number" step="0.00001" value={formData.target2Price} onChange={(e) => update("target2Price", e.target.value)} placeholder="Optional" />
+            </div>
           </CardContent>
         </Card>
       );
 
-    case "postentry":
+case "postentry":
       return (
         <Card>
           <CardHeader>
@@ -752,7 +1032,7 @@ function StepContent({
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="OPEN">Open</SelectItem>
-                    <SelectItem value="HIT_TARGET_1_RUNNING">HIT TARGET 1 & RUNNING</SelectItem>
+                    <SelectItem value="HIT_TARGET_1_RUNNING">HIT TARGET 1 &amp; RUNNING</SelectItem>
                     <SelectItem value="HIT_TARGET_2_COMPLETELY">HIT TARGET 2 COMPLETELY</SelectItem>
                     <SelectItem value="STOPPED_OUT">STOPPED OUT</SelectItem>
                     <SelectItem value="MANUAL_EXIT">MANUAL EXIT</SelectItem>
@@ -764,6 +1044,22 @@ function StepContent({
               <Checkbox id="target1Hit" checked={formData.target1Hit} onCheckedChange={(checked) => update("target1Hit", !!checked)} />
               <Label htmlFor="target1Hit">Target 1 Hit?</Label>
             </div>
+            {formData.target1Hit && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Target 1 Hit Price</Label>
+                  <Input type="number" step="0.00001" value={formData.target1HitPrice} onChange={(e) => update("target1HitPrice", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Time to Target 1 (minutes)</Label>
+                  <Input type="number" value={formData.timeToTarget1} onChange={(e) => update("timeToTarget1", e.target.value)} />
+                </div>
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <Checkbox id="stopMovedToBE" checked={formData.stopMovedToBE} onCheckedChange={(checked) => update("stopMovedToBE", !!checked)} />
+              <Label htmlFor="stopMovedToBE">Stop Moved to Break Even?</Label>
+            </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="manualExit" checked={formData.manualExit} onCheckedChange={(checked) => update("manualExit", !!checked)} />
               <Label htmlFor="manualExit">Manual Exit?</Label>
@@ -774,6 +1070,34 @@ function StepContent({
                 <Input value={formData.manualExitReason} onChange={(e) => update("manualExitReason", e.target.value)} />
               </div>
             )}
+            <div className="flex items-center space-x-2">
+              <Checkbox id="manualExitAligned" checked={formData.manualExitAligned} onCheckedChange={(checked) => update("manualExitAligned", !!checked)} />
+              <Label htmlFor="manualExitAligned">Manual Exit Aligned with Plan?</Label>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Target 2 Status</Label>
+                <Input value={formData.target2Status} onChange={(e) => update("target2Status", e.target.value)} placeholder="e.g. Running, Hit, Not Hit" />
+              </div>
+              <div className="space-y-2">
+                <Label>Target 2 Closed At</Label>
+                <Input type="number" value={formData.target2ClosedAt} onChange={(e) => update("target2ClosedAt", e.target.value)} placeholder="Timestamp" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Final RR</Label>
+                <Input type="number" step="0.1" value={formData.finalRR} onChange={(e) => update("finalRR", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Time to Close (minutes)</Label>
+                <Input type="number" value={formData.timeToClose} onChange={(e) => update("timeToClose", e.target.value)} />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="breakEvenStopsMoved" checked={formData.breakEvenStopsMoved} onCheckedChange={(checked) => update("breakEvenStopsMoved", !!checked)} />
+              <Label htmlFor="breakEvenStopsMoved">Break Even Stops Moved?</Label>
+            </div>
           </CardContent>
         </Card>
       );
@@ -790,6 +1114,10 @@ function StepContent({
               <div className="space-y-2">
                 <Label>P&amp;L ($)</Label>
                 <Input type="number" step="0.01" value={formData.pnl} onChange={(e) => update("pnl", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>P&amp;L (%)</Label>
+                <Input type="number" step="0.1" value={formData.pnlPercentage} onChange={(e) => update("pnlPercentage", e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Win/Loss Status</Label>
@@ -899,8 +1227,20 @@ function StepContent({
               <Textarea value={formData.whatWentRight} onChange={(e) => update("whatWentRight", e.target.value)} rows={2} />
             </div>
             <div className="space-y-2">
+              <Label>Expansion Description</Label>
+              <Textarea value={formData.expansionDescription} onChange={(e) => update("expansionDescription", e.target.value)} rows={2} placeholder="How did the trade expand beyond expectations?" />
+            </div>
+            <div className="space-y-2">
+              <Label>Surprise Description</Label>
+              <Textarea value={formData.surpriseDescription} onChange={(e) => update("surpriseDescription", e.target.value)} rows={2} placeholder="Any unexpected movements?" />
+            </div>
+            <div className="space-y-2">
               <Label>Institutional Lessons</Label>
               <Textarea value={formData.institutionalLessons} onChange={(e) => update("institutionalLessons", e.target.value)} rows={2} placeholder="What did institutions do?" />
+            </div>
+            <div className="space-y-2">
+              <Label>How Affects Next Trade</Label>
+              <Textarea value={formData.howAffectsNext} onChange={(e) => update("howAffectsNext", e.target.value)} rows={2} placeholder="How does this affect your next trade?" />
             </div>
             <Separator />
             <div className="space-y-2">
@@ -918,8 +1258,22 @@ function StepContent({
                   <Checkbox id="waitedForInducement" checked={formData.waitedForInducement} onCheckedChange={(checked) => update("waitedForInducement", !!checked)} />
                   <Label htmlFor="waitedForInducement">Waited for clear inducement</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="respectedHTFNarrative" checked={formData.respectedHTFNarrative} onCheckedChange={(checked) => update("respectedHTFNarrative", !!checked)} />
+                  <Label htmlFor="respectedHTFNarrative">Respected HTF Narrative</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="managedRiskPerPlan" checked={formData.managedRiskPerPlan} onCheckedChange={(checked) => update("managedRiskPerPlan", !!checked)} />
+                  <Label htmlFor="managedRiskPerPlan">Managed Risk Per Plan</Label>
+                </div>
               </div>
             </div>
+            {!formData.followedTrinity && (
+              <div className="space-y-2">
+                <Label>Trinity Violation Explanation</Label>
+                <Textarea value={formData.trinityViolationExplanation} onChange={(e) => update("trinityViolationExplanation", e.target.value)} rows={2} />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Discipline Score (1-10)</Label>
               <Input type="number" min="1" max="10" value={formData.disciplineScore} onChange={(e) => update("disciplineScore", e.target.value)} />

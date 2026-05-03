@@ -19,6 +19,23 @@ import {
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 
+const REQUIRED_FIELDS = [
+  "instrument",
+  "direction",
+  "entryPrice",
+  "stopLossPrice",
+  "riskAmount",
+  "pnl",
+  "winLossStatus",
+];
+
+function isTradeIncomplete(trade: any): boolean {
+  return REQUIRED_FIELDS.some(field => {
+    const value = trade[field as keyof typeof trade];
+    return value === undefined || value === null || value === "" || value === 0;
+  });
+}
+
 export default function TradeDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -39,6 +56,8 @@ export default function TradeDetailPage() {
       </div>
     );
   }
+
+  const incomplete = isTradeIncomplete(trade);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -62,6 +81,12 @@ export default function TradeDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {incomplete && (
+            <Button size="sm" onClick={() => router.push(`/trades/${tradeId}/edit`)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Complete Trade
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => router.push(`/trades/${tradeId}/edit`)}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit
@@ -72,6 +97,15 @@ export default function TradeDetailPage() {
           </Button>
         </div>
       </div>
+
+      {incomplete && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 flex items-center justify-between">
+          <span className="text-amber-600 dark:text-amber-400 text-sm font-medium">This trade is incomplete - click to complete</span>
+          <Button size="sm" className="animate-pulse" onClick={() => router.push(`/trades/${tradeId}/edit`)}>
+            Complete Now
+          </Button>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-3 gap-4">
         <div className="bg-muted/50 rounded-lg p-4">

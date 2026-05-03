@@ -41,6 +41,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 // Mini progress bar component
+const REQUIRED_TRADE_FIELDS = [
+  "instrument",
+  "direction",
+  "entryPrice",
+  "stopLossPrice",
+  "riskAmount",
+  "pnl",
+  "winLossStatus",
+];
+
+export function isTradeIncomplete(trade: any): boolean {
+  return REQUIRED_TRADE_FIELDS.some(field => {
+    const value = trade[field as keyof typeof trade];
+    return value === undefined || value === null || value === "" || value === 0;
+  });
+}
+
 function MiniBar({ value, max, color = "bg-emerald-500" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
@@ -474,6 +491,11 @@ export default function TradesPage() {
                     }`}>
                       {trade.winLossStatus || "OPEN"}
                     </span>
+                    {isTradeIncomplete(trade) && (
+                      <span className="ml-1 animate-pulse inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        INCOMPLETE
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-center text-zinc-600 dark:text-zinc-300 text-sm py-3 hidden md:table-cell">
                     {trade.tradeQualityScore ? `${trade.tradeQualityScore}` : "-"}
