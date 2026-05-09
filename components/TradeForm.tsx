@@ -3,6 +3,7 @@
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface TradeFormProps {
   onClose: () => void;
@@ -299,29 +300,26 @@ export function TradeForm({ onClose, trade }: TradeFormProps) {
                   </select>
                 </FormField>
                 <FormField label="External Structure (Main Push)">
-                  <textarea
+                  <RichTextEditor
                     value={formData.externalStructure}
-                    onChange={(e) => setFormData({ ...formData, externalStructure: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    onChange={(value) => setFormData({ ...formData, externalStructure: value })}
                     placeholder="Describe the main push and structure..."
+                    rows={3}
                   />
                 </FormField>
                 <FormField label="Major Liquidity Pools">
-                  <textarea
+                  <RichTextEditor
                     value={formData.majorLiquidityPools}
-                    onChange={(e) => setFormData({ ...formData, majorLiquidityPools: e.target.value })}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    onChange={(value) => setFormData({ ...formData, majorLiquidityPools: value })}
                     placeholder="Asia High, Asia Low, Previous D POI..."
+                    rows={2}
                   />
                 </FormField>
                 <FormField label="Internal Structure">
-                  <textarea
+                  <RichTextEditor
                     value={formData.internalStructure}
-                    onChange={(e) => setFormData({ ...formData, internalStructure: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, internalStructure: value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                   />
                 </FormField>
                 <FormField label="Session">
@@ -384,11 +382,10 @@ export function TradeForm({ onClose, trade }: TradeFormProps) {
                   </div>
                 </FormField>
                 <FormField label="POI Description">
-                  <textarea
+                  <RichTextEditor
                     value={formData.poiDescription}
-                    onChange={(e) => setFormData({ ...formData, poiDescription: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, poiDescription: value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                   />
                 </FormField>
                 <FormField label="POI Mitigation Status">
@@ -832,12 +829,11 @@ export function TradeForm({ onClose, trade }: TradeFormProps) {
             {activeTab === "reflection" && (
               <div className="space-y-4">
                 <FormField label="Why did you enter this trade?">
-                  <textarea
+                  <RichTextEditor
                     value={formData.whyEntered}
-                    onChange={(e) => setFormData({ ...formData, whyEntered: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    onChange={(value) => setFormData({ ...formData, whyEntered: value })}
                     placeholder="Describe the setup in your own words..."
+                    rows={3}
                   />
                 </FormField>
                 <FormField label="Did the move play out as expected?">
@@ -852,28 +848,25 @@ export function TradeForm({ onClose, trade }: TradeFormProps) {
                   </label>
                 </FormField>
                 <FormField label="What went wrong? (if losing)">
-                  <textarea
+                  <RichTextEditor
                     value={formData.whatWentWrong}
-                    onChange={(e) => setFormData({ ...formData, whatWentWrong: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, whatWentWrong: value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                   />
                 </FormField>
                 <FormField label="What went right? (if winning)">
-                  <textarea
+                  <RichTextEditor
                     value={formData.whatWentRight}
-                    onChange={(e) => setFormData({ ...formData, whatWentRight: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, whatWentRight: value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
                   />
                 </FormField>
                 <FormField label="Institutional Lessons">
-                  <textarea
+                  <RichTextEditor
                     value={formData.institutionalLessons}
-                    onChange={(e) => setFormData({ ...formData, institutionalLessons: e.target.value })}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    onChange={(value) => setFormData({ ...formData, institutionalLessons: value })}
                     placeholder="What did institutions do in this trade?"
+                    rows={2}
                   />
                 </FormField>
                 <div className="space-y-2">

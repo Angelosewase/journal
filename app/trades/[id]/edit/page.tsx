@@ -17,6 +17,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ScreenshotUpload } from "@/components/ScreenshotUpload";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
 const poiQualityOptions = ["IMBALANCE/FAIR_VALUE_GAP", "INDUCEMENT_RESTING", "CLEAN_BREAK"];
@@ -1212,7 +1213,7 @@ case "postentry":
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Why did you enter this trade?</Label>
-              <Textarea value={formData.whyEntered} onChange={(e) => update("whyEntered", e.target.value)} rows={3} placeholder="Describe the setup..." />
+              <RichTextEditor value={formData.whyEntered} onChange={(value) => update("whyEntered", value)} placeholder="Describe the setup..." rows={3} />
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="playedAsExpected" checked={formData.playedAsExpected} onCheckedChange={(checked) => update("playedAsExpected", !!checked)} />
@@ -1220,27 +1221,27 @@ case "postentry":
             </div>
             <div className="space-y-2">
               <Label>What went wrong? (if losing)</Label>
-              <Textarea value={formData.whatWentWrong} onChange={(e) => update("whatWentWrong", e.target.value)} rows={2} />
+              <RichTextEditor value={formData.whatWentWrong} onChange={(value) => update("whatWentWrong", value)} rows={2} />
             </div>
             <div className="space-y-2">
               <Label>What went right? (if winning)</Label>
-              <Textarea value={formData.whatWentRight} onChange={(e) => update("whatWentRight", e.target.value)} rows={2} />
+              <RichTextEditor value={formData.whatWentRight} onChange={(value) => update("whatWentRight", value)} rows={2} />
             </div>
             <div className="space-y-2">
               <Label>Expansion Description</Label>
-              <Textarea value={formData.expansionDescription} onChange={(e) => update("expansionDescription", e.target.value)} rows={2} placeholder="How did the trade expand beyond expectations?" />
+              <RichTextEditor value={formData.expansionDescription} onChange={(value) => update("expansionDescription", value)} placeholder="How did the trade expand beyond expectations?" rows={2} />
             </div>
             <div className="space-y-2">
               <Label>Surprise Description</Label>
-              <Textarea value={formData.surpriseDescription} onChange={(e) => update("surpriseDescription", e.target.value)} rows={2} placeholder="Any unexpected movements?" />
+              <RichTextEditor value={formData.surpriseDescription} onChange={(value) => update("surpriseDescription", value)} placeholder="Any unexpected movements?" rows={2} />
             </div>
             <div className="space-y-2">
               <Label>Institutional Lessons</Label>
-              <Textarea value={formData.institutionalLessons} onChange={(e) => update("institutionalLessons", e.target.value)} rows={2} placeholder="What did institutions do?" />
+              <RichTextEditor value={formData.institutionalLessons} onChange={(value) => update("institutionalLessons", value)} placeholder="What did institutions do?" rows={2} />
             </div>
             <div className="space-y-2">
               <Label>How Affects Next Trade</Label>
-              <Textarea value={formData.howAffectsNext} onChange={(e) => update("howAffectsNext", e.target.value)} rows={2} placeholder="How does this affect your next trade?" />
+              <RichTextEditor value={formData.howAffectsNext} onChange={(value) => update("howAffectsNext", value)} placeholder="How does this affect your next trade?" rows={2} />
             </div>
             <Separator />
             <div className="space-y-2">
