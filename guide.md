@@ -1,4 +1,4 @@
-# WWA Trading Journal - Complete Specification
+#  Trading Journal - Complete Specification
 
 ## OVERVIEW
 
