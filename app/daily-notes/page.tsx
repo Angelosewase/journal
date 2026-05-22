@@ -208,7 +208,7 @@ export default function DailyNotesPage() {
                   </p>
                 </div>
                 {selectedDate === note.date && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_var(--color-primary)]" />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-primary" />
                 )}
               </button>
             ))
@@ -297,7 +297,7 @@ export default function DailyNotesPage() {
                 <Button
                   onClick={handleSave}
                   size="sm"
-                  className="rounded-full px-6 h-8 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold gap-1.5 shadow-lg shadow-primary/20"
+                  className="rounded-full px-6 h-8 bg-primary hover:opacity-90 text-primary-foreground text-xs font-bold gap-1.5 shadow-sm shadow-primary/10"
                 >
                   <Save className="h-3 w-3" />
                   Save Changes
@@ -359,7 +359,7 @@ export default function DailyNotesPage() {
                 </p>
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="rounded-full bg-primary hover:opacity-90 text-primary-foreground px-8 h-10 font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+                  className="rounded-full bg-primary hover:opacity-90 text-primary-foreground px-8 h-10 font-bold shadow-md shadow-primary/10 transition-all hover:scale-105 active:scale-95"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create Note
