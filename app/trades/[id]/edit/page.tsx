@@ -4,43 +4,675 @@ import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, ChevronLeft, ChevronRight, CheckCircle2, Info, Layers, Zap, Shield, BarChart2, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ScreenshotUpload } from "@/components/ScreenshotUpload";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Id } from "@/convex/_generated/dataModel";
+import { cn } from "@/lib/utils";
 
-const instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
-const poiQualityOptions = ["IMBALANCE/FAIR_VALUE_GAP", "INDUCEMENT_RESTING", "CLEAN_BREAK"];
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-const steps = [
-  { id: "basic", label: "Basic Info", short: "Basic" },
-  { id: "direction", label: "Direction & Analysis", short: "Direction" },
-  { id: "poi", label: "Point of Interest", short: "POI" },
-  { id: "traps", label: "Traps & Inducement", short: "Traps" },
-  { id: "trinity", label: "The Trinity", short: "Trinity" },
-  { id: "execution", label: "Trade Execution", short: "Execution" },
-  { id: "risk", label: "Risk Management", short: "Risk" },
-  { id: "postentry", label: "Post-Entry", short: "Post" },
-  { id: "outcome", label: "Trade Outcome", short: "Outcome" },
-  { id: "reflection", label: "Reflection", short: "Reflection" },
-  { id: "screenshots", label: "Screenshots", short: "Screenshots" },
+const STEPS = [
+  { id: "basics",     label: "Basics",     icon: Info,      description: "Instrument, direction & prices" },
+  { id: "context",    label: "Context",    icon: Layers,    description: "Structure, bias & session" },
+  { id: "setup",      label: "Setup",      icon: Zap,       description: "POI, traps & Trinity" },
+  { id: "risk",       label: "Risk",       icon: Shield,    description: "Stop loss, sizing & targets" },
+  { id: "outcome",    label: "Outcome",    icon: BarChart2, description: "Result & quality ratings" },
+  { id: "reflection", label: "Reflection", icon: BookOpen,  description: "What happened & lessons" },
 ];
 
-const REQUIRED_FIELDS = ["instrument", "direction", "entryPrice", "stopLossPrice", "riskAmount"];
+const INSTRUMENTS = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
 
-function isTradeComplete(formData: any): boolean {
-  return REQUIRED_FIELDS.every(field => formData[field] && formData[field] !== "");
+const REQUIRED = ["instrument", "direction", "entryPrice", "stopLossPrice", "riskAmount"];
+function isComplete(f: Record<string, any>) { return REQUIRED.every((k) => f[k] && f[k] !== ""); }
+
+// ─── Primitives ───────────────────────────────────────────────────────────────
+
+function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={cn(
+        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
+        active ? "bg-foreground text-background border-foreground"
+               : "text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground"
+      )}>
+      {children}
+    </button>
+  );
 }
+
+function FlatInput({ value, onChange, placeholder, type = "text", step, required }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; step?: string; required?: boolean;
+}) {
+  return (
+    <input type={type} step={step} value={value} required={required}
+      onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "—"}
+      className="w-full rounded-lg bg-muted/40 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-ring" />
+  );
+}
+
+function FlatTextarea({ value, onChange, placeholder, rows = 3 }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
+}) {
+  return (
+    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows}
+      className="w-full resize-none rounded-lg bg-muted/40 px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-ring" />
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">{children}</p>;
+}
+
+function SliderRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const num = Number(value) || 1;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-lg font-semibold tabular-nums">{num}<span className="text-xs font-normal text-muted-foreground">/10</span></span>
+      </div>
+      <input type="range" min={1} max={10} value={num} onChange={(e) => onChange(e.target.value)}
+        className="w-full h-1.5 rounded-full accent-foreground cursor-pointer" />
+    </div>
+  );
+}
+
+function PricePair({ leftLabel, leftValue, onLeft, rightLabel, rightValue, onRight, step = "0.00001" }: {
+  leftLabel: string; leftValue: string; onLeft: (v: string) => void;
+  rightLabel: string; rightValue: string; onRight: (v: string) => void;
+  step?: string;
+}) {
+  return (
+    <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
+      <div className="flex-1 space-y-0.5">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{leftLabel}</p>
+        <input type="number" step={step} value={leftValue} onChange={(e) => onLeft(e.target.value)} placeholder="0.00000"
+          className="w-full bg-transparent text-base font-mono font-medium outline-none placeholder:text-muted-foreground/30" />
+      </div>
+      <div className="w-px bg-border" />
+      <div className="flex-1 space-y-0.5">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{rightLabel}</p>
+        <input type="number" step={step} value={rightValue} onChange={(e) => onRight(e.target.value)} placeholder="0.00000"
+          className="w-full bg-transparent text-base font-mono font-medium outline-none placeholder:text-muted-foreground/30" />
+      </div>
+    </div>
+  );
+}
+
+function CheckRow({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <Checkbox id={id} checked={checked} onCheckedChange={(c) => onChange(!!c)} />
+      <Label htmlFor={id} className="text-sm cursor-pointer">{label}</Label>
+    </div>
+  );
+}
+
+function TrinityStatus({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className={cn("flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
+      active ? "border-foreground/20 text-foreground" : "border-border text-muted-foreground line-through")}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", active ? "bg-foreground" : "bg-muted-foreground/30")} />
+      {label}
+    </div>
+  );
+}
+
+// ─── Step: Basics ─────────────────────────────────────────────────────────────
+
+function StepBasics({ f, u, accounts }: { f: Record<string, any>; u: (k: string, v: any) => void; accounts: { _id: string; name: string }[] }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionLabel>Environment</SectionLabel>
+        <div className="flex gap-2">
+          {["BACKTESTING", "DEMO", "LIVE"].map((v) => (
+            <Pill key={v} active={f.environment === v} onClick={() => u("environment", v)}>{v}</Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Instrument</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {INSTRUMENTS.map((v) => (
+            <Pill key={v} active={f.instrument === v} onClick={() => u("instrument", v)}>{v}</Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Direction</SectionLabel>
+        <div className="flex gap-2">
+          <Pill active={f.direction === "LONG"}  onClick={() => u("direction", "LONG")}>↑ LONG</Pill>
+          <Pill active={f.direction === "SHORT"} onClick={() => u("direction", "SHORT")}>↓ SHORT</Pill>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Prices</SectionLabel>
+        <PricePair leftLabel="Entry" leftValue={f.entryPrice} onLeft={(v) => u("entryPrice", v)}
+          rightLabel="Exit" rightValue={f.exitPrice} onRight={(v) => u("exitPrice", v)} />
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Size & Fees</SectionLabel>
+        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Lot Size</p>
+            <input type="number" step="0.01" value={f.positionSize} onChange={(e) => u("positionSize", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Commission ($)</p>
+            <input type="number" step="0.01" value={f.commission} onChange={(e) => u("commission", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none" />
+          </div>
+        </div>
+      </div>
+
+      {accounts.length > 0 && (
+        <div className="space-y-3">
+          <SectionLabel>Account</SectionLabel>
+          <div className="flex flex-wrap gap-2">
+            <Pill active={f.accountId === "__none__" || !f.accountId} onClick={() => u("accountId", "__none__")}>No account</Pill>
+            {accounts.map((a) => (
+              <Pill key={a._id} active={f.accountId === String(a._id)} onClick={() => u("accountId", String(a._id))}>{a.name}</Pill>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Step: Context ────────────────────────────────────────────────────────────
+
+function StepContext({ f, u }: { f: Record<string, any>; u: (k: string, v: any) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionLabel>Daily Bias</SectionLabel>
+        <div className="flex gap-2">
+          {["BULLISH", "NEUTRAL", "BEARISH"].map((v) => (
+            <Pill key={v} active={f.dailyBias === v} onClick={() => u("dailyBias", v)}>{v}</Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Session</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {["ASIA", "LONDON", "NEW_YORK", "OTHER"].map((v) => (
+            <Pill key={v} active={f.session === v} onClick={() => u("session", v)}>{v.replace("_", " ")}</Pill>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 pt-1">
+          <Checkbox id="isInKillzone" checked={f.isInKillzone} onCheckedChange={(c) => u("isInKillzone", !!c)} />
+          <Label htmlFor="isInKillzone" className="text-sm cursor-pointer">In Killzone (London / NY Open)</Label>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <SectionLabel>External Structure (Main Push)</SectionLabel>
+        <FlatTextarea value={f.externalStructure} onChange={(v) => u("externalStructure", v)}
+          placeholder="Main push direction, key structure levels, where institutions are targeting…" rows={3} />
+      </div>
+
+      <div className="space-y-2">
+        <SectionLabel>Major Liquidity Pools</SectionLabel>
+        <FlatTextarea value={f.majorLiquidityPools} onChange={(v) => u("majorLiquidityPools", v)}
+          placeholder="Asia High / Low, Previous D POI, key EQH / EQL…" rows={2} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <FieldLabel>Internal Structure</FieldLabel>
+          <FlatInput value={f.internalStructure} onChange={(v) => u("internalStructure", v)} placeholder="BOS, ChoCH…" />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel>Current Range</FieldLabel>
+          <FlatInput value={f.currentRange} onChange={(v) => u("currentRange", v)} placeholder="e.g. 80 pips" />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <FieldLabel>Minor Push Status</FieldLabel>
+        <FlatInput value={f.minorPushStatus} onChange={(v) => u("minorPushStatus", v)} placeholder="e.g. Continuing, Exhausting" />
+      </div>
+
+      <div className="space-y-1.5">
+        <FieldLabel>Trade Model</FieldLabel>
+        <div className="flex gap-2">
+          <Pill active={f.tradeModel === "CONTINUATION"} onClick={() => u("tradeModel", "CONTINUATION")}>CONTINUATION</Pill>
+          <Pill active={f.tradeModel === "REVERSAL"}     onClick={() => u("tradeModel", "REVERSAL")}>REVERSAL</Pill>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Narrative Alignment</SectionLabel>
+        <div className="space-y-2">
+          <CheckRow id="narrativeAlignment"     label="HTF narrative supports this trade" checked={f.narrativeAlignment}     onChange={(v) => u("narrativeAlignment", v)} />
+          <CheckRow id="tradingWithMainPush"     label="Trading WITH the Main Push"        checked={f.tradingWithMainPush}     onChange={(v) => u("tradingWithMainPush", v)} />
+          <CheckRow id="noNarrativeMisalignment" label="No narrative misalignment"         checked={f.noNarrativeMisalignment} onChange={(v) => u("noNarrativeMisalignment", v)} />
+          <CheckRow id="institutionsReasoned"    label="Institutions reasoned"             checked={f.institutionsReasoned}    onChange={(v) => u("institutionsReasoned", v)} />
+        </div>
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div className="space-y-1.5">
+            <FieldLabel>Liquidity Engineering</FieldLabel>
+            <div className="flex gap-2">
+              <Pill active={f.clearLiquidityEngineering === "CLEAR"}   onClick={() => u("clearLiquidityEngineering", "CLEAR")}>CLEAR</Pill>
+              <Pill active={f.clearLiquidityEngineering === "UNCLEAR"} onClick={() => u("clearLiquidityEngineering", "UNCLEAR")}>UNCLEAR</Pill>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Approach Dynamics</FieldLabel>
+            <FlatInput value={f.approachDynamics} onChange={(v) => u("approachDynamics", v)} placeholder="CP / V-Shape / Other" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step: Setup ──────────────────────────────────────────────────────────────
+
+function StepSetup({ f, u }: { f: Record<string, any>; u: (k: string, v: any) => void }) {
+  return (
+    <div className="space-y-6">
+      {/* POI */}
+      <div className="space-y-3">
+        <SectionLabel>POI</SectionLabel>
+        <div className="flex gap-2">
+          <Pill active={f.poiType === "EXTREME"}    onClick={() => u("poiType", "EXTREME")}>EXTREME</Pill>
+          <Pill active={f.poiType === "DECISIONAL"} onClick={() => u("poiType", "DECISIONAL")}>DECISIONAL</Pill>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {["UNMITIGATED", "MITIGATED_ONCE", "WEAKENED"].map((v) => (
+            <Pill key={v} active={f.poiMitigationStatus === v} onClick={() => u("poiMitigationStatus", v)}>
+              {v.replace("_", " ")}
+            </Pill>
+          ))}
+        </div>
+        <FlatTextarea value={f.poiDescription} onChange={(v) => u("poiDescription", v)}
+          placeholder="Describe the POI — type, location, how it formed…" rows={2} />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Gap size (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.gapSize} onChange={(v) => u("gapSize", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Break size (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.breakSize} onChange={(v) => u("breakSize", v)} placeholder="0" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Inducement resting</FieldLabel>
+            <FlatInput value={f.inducementResting} onChange={(v) => u("inducementResting", v)} placeholder="Above / Below" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Distance from POI (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.distanceFromPoi} onChange={(v) => u("distanceFromPoi", v)} placeholder="0" />
+          </div>
+        </div>
+        <CheckRow id="cleanBreak" label="Clean break (convincing structure break)" checked={f.cleanBreak} onChange={(v) => u("cleanBreak", v)} />
+      </div>
+
+      {/* Traps */}
+      <div className="space-y-3">
+        <SectionLabel>Trap</SectionLabel>
+        <div className="flex gap-2">
+          {["YES", "NO", "PARTIAL"].map((v) => (
+            <Pill key={v} active={f.trapSwept === v} onClick={() => u("trapSwept", v)}>{v}</Pill>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Trap type</FieldLabel>
+            <FlatInput value={f.trapType} onChange={(v) => u("trapType", v)} placeholder="Inducement / SMT…" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Trap cleanliness</FieldLabel>
+            <FlatInput value={f.trapCleanliness} onChange={(v) => u("trapCleanliness", v)} placeholder="Clean / Messy" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Trap location (pips from POI)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.trapLocation} onChange={(v) => u("trapLocation", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Trap tapped count</FieldLabel>
+            <FlatInput type="number" value={f.trapTappedCount} onChange={(v) => u("trapTappedCount", v)} placeholder="0" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Liquidity engineering</FieldLabel>
+            <FlatInput value={f.liquidityEngineering} onChange={(v) => u("liquidityEngineering", v)} placeholder="Stacked / Swept" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Liq. tapped count</FieldLabel>
+            <FlatInput type="number" value={f.liquidityTappedCount} onChange={(v) => u("liquidityTappedCount", v)} placeholder="0" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel>Retail behavior</FieldLabel>
+          <FlatInput value={f.retailBehavior} onChange={(v) => u("retailBehavior", v)} placeholder="Chasing / Stop hunting…" />
+        </div>
+        <CheckRow id="missingInducement" label="Missing inducement (reduces probability)" checked={f.missingInducement} onChange={(v) => u("missingInducement", v)} />
+      </div>
+
+      {/* Trinity status */}
+      <div className="space-y-3">
+        <SectionLabel>Trinity Check</SectionLabel>
+        <div className="space-y-2">
+          <TrinityStatus label="1 · Inducement swept"       active={f.trapSwept === "YES"} />
+          <TrinityStatus label="2 · LTC / SMS confirmation" active={f.smsAfterTrap} />
+          <TrinityStatus label="3 · In Killzone"            active={f.isInKillzone} />
+        </div>
+        <CheckRow id="smsAfterTrap" label="SMS (Shift in Market Structure) after trap" checked={f.smsAfterTrap} onChange={(v) => u("smsAfterTrap", v)} />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>LTF entry TF</FieldLabel>
+            <div className="flex gap-2">
+              <Pill active={f.ltfEntryTimeframe === "1M"} onClick={() => u("ltfEntryTimeframe", "1M")}>1M</Pill>
+              <Pill active={f.ltfEntryTimeframe === "5M"} onClick={() => u("ltfEntryTimeframe", "5M")}>5M</Pill>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>BMS pattern</FieldLabel>
+            <FlatInput value={f.bmsPattern} onChange={(v) => u("bmsPattern", v)} placeholder="BOS / ChoCH…" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>SMC / SMG type</FieldLabel>
+            <FlatInput value={f.smcType} onChange={(v) => u("smcType", v)} placeholder="Higher High + Higher Low…" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>RTO distance (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.rtoDistance} onChange={(v) => u("rtoDistance", v)} placeholder="0" />
+          </div>
+        </div>
+        <CheckRow id="rtoApplicable" label="RTO (Retest of Origin) applicable" checked={f.rtoApplicable} onChange={(v) => u("rtoApplicable", v)} />
+        <SliderRow label="BMS confidence"   value={f.bmsConfidence}   onChange={(v) => u("bmsConfidence", v)} />
+        <SliderRow label="Entry confidence" value={f.entryConfidence} onChange={(v) => u("entryConfidence", v)} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Step: Risk ───────────────────────────────────────────────────────────────
+
+function StepRisk({ f, u }: { f: Record<string, any>; u: (k: string, v: any) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionLabel>Stop Loss</SectionLabel>
+        <PricePair leftLabel="SL Price" leftValue={f.stopLossPrice} onLeft={(v) => u("stopLossPrice", v)}
+          rightLabel="SL Pips" rightValue={f.stopLossPips} onRight={(v) => u("stopLossPips", v)} step="0.1" />
+        <div className="flex flex-wrap gap-2">
+          {["IFC_ABOVE", "IFC_BELOW", "REFINED_WICK"].map((v) => (
+            <Pill key={v} active={f.stopLossPlacement === v} onClick={() => u("stopLossPlacement", v)}>
+              {v.replace("_", " ")}
+            </Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Risk</SectionLabel>
+        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Amount ($)</p>
+            <input type="number" step="0.01" value={f.riskAmount} onChange={(e) => u("riskAmount", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="10.00" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">% of Account</p>
+            <input type="number" step="0.1" value={f.riskPercentage} onChange={(e) => u("riskPercentage", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="1.0" />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Targets</SectionLabel>
+        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T1 RR</p>
+            <input type="number" step="0.1" value={f.target1RR} onChange={(e) => u("target1RR", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T2 RR</p>
+            <input type="number" step="0.1" value={f.target2RR} onChange={(e) => u("target2RR", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T1 Price</p>
+            <input type="number" step="0.00001" value={f.target1Price} onChange={(e) => u("target1Price", e.target.value)}
+              className="w-full bg-transparent text-base font-mono font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="opt." />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T2 Price</p>
+            <input type="number" step="0.00001" value={f.target2Price} onChange={(e) => u("target2Price", e.target.value)}
+              className="w-full bg-transparent text-base font-mono font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="opt." />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step: Outcome ────────────────────────────────────────────────────────────
+
+function StepOutcome({ f, u }: { f: Record<string, any>; u: (k: string, v: any) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <SectionLabel>Result</SectionLabel>
+        <div className="flex gap-2">
+          {["WIN", "BREAK_EVEN", "LOSS"].map((v) => (
+            <Pill key={v} active={f.winLossStatus === v} onClick={() => u("winLossStatus", v)}>
+              {v.replace("_", " ")}
+            </Pill>
+          ))}
+        </div>
+        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">P&amp;L ($)</p>
+            <input type="number" step="0.01" value={f.pnl} onChange={(e) => u("pnl", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="0.00" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">P&amp;L (%)</p>
+            <input type="number" step="0.1" value={f.pnlPercentage} onChange={(e) => u("pnlPercentage", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="0.0" />
+          </div>
+          <div className="w-px bg-border" />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Final RR</p>
+            <input type="number" step="0.1" value={f.finalRR} onChange={(e) => u("finalRR", e.target.value)}
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="0.0" />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Closure</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {["OPEN", "HIT_TARGET_1_RUNNING", "HIT_TARGET_2_COMPLETELY", "STOPPED_OUT", "MANUAL_EXIT"].map((v) => (
+            <Pill key={v} active={f.tradeClosureReason === v} onClick={() => u("tradeClosureReason", v)}>
+              {v.replace(/_/g, " ")}
+            </Pill>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <CheckRow id="target1Hit"          label="Target 1 hit"              checked={f.target1Hit}          onChange={(v) => u("target1Hit", v)} />
+          <CheckRow id="stopMovedToBE"       label="Stop moved to break even"  checked={f.stopMovedToBE}       onChange={(v) => u("stopMovedToBE", v)} />
+          <CheckRow id="breakEvenStopsMoved" label="Break even stops moved"    checked={f.breakEvenStopsMoved} onChange={(v) => u("breakEvenStopsMoved", v)} />
+          <CheckRow id="manualExit"          label="Manual exit"               checked={f.manualExit}          onChange={(v) => u("manualExit", v)} />
+        </div>
+        {f.target1Hit && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <FieldLabel>T1 hit price</FieldLabel>
+              <FlatInput type="number" step="0.00001" value={f.target1HitPrice} onChange={(v) => u("target1HitPrice", v)} placeholder="0.00000" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Time to T1 (min)</FieldLabel>
+              <FlatInput type="number" value={f.timeToTarget1} onChange={(v) => u("timeToTarget1", v)} placeholder="0" />
+            </div>
+          </div>
+        )}
+        {f.manualExit && (
+          <div className="space-y-2">
+            <FlatInput value={f.manualExitReason} onChange={(v) => u("manualExitReason", v)} placeholder="Why did you exit manually?" />
+            <CheckRow id="manualExitAligned" label="Manual exit aligned with plan" checked={f.manualExitAligned} onChange={(v) => u("manualExitAligned", v)} />
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Post-Entry Metrics</SectionLabel>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <FieldLabel>Time in trade (min)</FieldLabel>
+            <FlatInput type="number" value={f.timeInTradeMinutes} onChange={(v) => u("timeInTradeMinutes", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Time to close (min)</FieldLabel>
+            <FlatInput type="number" value={f.timeToClose} onChange={(v) => u("timeToClose", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Max profit (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.maxProfitReached} onChange={(v) => u("maxProfitReached", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Max drawdown (pips)</FieldLabel>
+            <FlatInput type="number" step="0.1" value={f.maxDrawdown} onChange={(v) => u("maxDrawdown", v)} placeholder="0" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>T2 status</FieldLabel>
+            <FlatInput value={f.target2Status} onChange={(v) => u("target2Status", v)} placeholder="Running / Hit / Not Hit" />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>T2 closed at</FieldLabel>
+            <FlatInput type="number" value={f.target2ClosedAt} onChange={(v) => u("target2ClosedAt", v)} placeholder="Timestamp" />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <SectionLabel>Quality Ratings</SectionLabel>
+        <SliderRow label="Overall trade quality" value={f.tradeQualityScore} onChange={(v) => u("tradeQualityScore", v)} />
+        <div className="space-y-3">
+          {[
+            { label: "POI quality",        field: "poiQualityRating",        opts: ["PRISTINE","CLEAN","ACCEPTABLE","QUESTIONABLE"] },
+            { label: "Inducement quality", field: "inducementQualityRating", opts: ["OBVIOUS","CLEAR","SUBTLE","MISSING"] },
+            { label: "Trinity alignment",  field: "trinityAlignmentRating",  opts: ["PERFECT","STRONG","ACCEPTABLE","WEAK"] },
+            { label: "Risk execution",     field: "riskExecutionRating",     opts: ["FLAWLESS","GOOD","ACCEPTABLE","POOR"] },
+            { label: "Discipline",         field: "disciplineRating",        opts: ["PERFECT_WAIT","MINOR_RUSH","IMPATIENT","FORCED"] },
+          ].map(({ label, field, opts }) => (
+            <div key={field} className="flex gap-3 items-center py-2 border-b last:border-0">
+              <span className="text-xs text-muted-foreground w-32 shrink-0">{label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {opts.map((v) => (
+                  <Pill key={v} active={f[field] === v} onClick={() => u(field, v)}>{v.replace(/_/g, " ")}</Pill>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step: Reflection ─────────────────────────────────────────────────────────
+
+function StepReflection({ f, u }: { f: Record<string, any>; u: (k: string, v: any) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <SectionLabel>Why did you enter?</SectionLabel>
+        <RichTextEditor value={f.whyEntered} onChange={(v) => u("whyEntered", v)}
+          placeholder="Describe the setup, what you saw, why you pulled the trigger…" rows={3} />
+      </div>
+
+      <CheckRow id="playedAsExpected" label="Move played out as expected" checked={f.playedAsExpected} onChange={(v) => u("playedAsExpected", v)} />
+
+      <div className="space-y-2">
+        <SectionLabel>What went right / wrong?</SectionLabel>
+        <RichTextEditor value={f.whatWentRight} onChange={(v) => u("whatWentRight", v)} placeholder="What you did well…" rows={2} />
+        <RichTextEditor value={f.whatWentWrong} onChange={(v) => u("whatWentWrong", v)} placeholder="What went wrong or could be better…" rows={2} />
+      </div>
+
+      <div className="space-y-2">
+        <SectionLabel>Expansion & Surprise</SectionLabel>
+        <RichTextEditor value={f.expansionDescription} onChange={(v) => u("expansionDescription", v)}
+          placeholder="How did the trade expand beyond expectations?" rows={2} />
+        <RichTextEditor value={f.surpriseDescription} onChange={(v) => u("surpriseDescription", v)}
+          placeholder="Any unexpected movements?" rows={2} />
+      </div>
+
+      <div className="space-y-2">
+        <SectionLabel>Institutional lessons</SectionLabel>
+        <RichTextEditor value={f.institutionalLessons} onChange={(v) => u("institutionalLessons", v)}
+          placeholder="What did institutions do? What did you learn about their behaviour?" rows={2} />
+      </div>
+
+      <div className="space-y-2">
+        <SectionLabel>How this affects the next trade</SectionLabel>
+        <RichTextEditor value={f.howAffectsNext} onChange={(v) => u("howAffectsNext", v)}
+          placeholder="How does this change your approach going forward?" rows={2} />
+      </div>
+
+      <div className="space-y-3">
+        <SectionLabel>Rule adherence</SectionLabel>
+        <div className="space-y-2">
+          <CheckRow id="followedTrinity"       label="Followed the Trinity"          checked={f.followedTrinity}       onChange={(v) => u("followedTrinity", v)} />
+          <CheckRow id="correctKillzone"       label="Used correct Killzone"         checked={f.correctKillzone}       onChange={(v) => u("correctKillzone", v)} />
+          <CheckRow id="waitedForInducement"   label="Waited for clear inducement"   checked={f.waitedForInducement}   onChange={(v) => u("waitedForInducement", v)} />
+          <CheckRow id="respectedHTFNarrative" label="Respected HTF Narrative"       checked={f.respectedHTFNarrative} onChange={(v) => u("respectedHTFNarrative", v)} />
+          <CheckRow id="managedRiskPerPlan"    label="Managed risk per plan"         checked={f.managedRiskPerPlan}    onChange={(v) => u("managedRiskPerPlan", v)} />
+        </div>
+        {!f.followedTrinity && (
+          <FlatTextarea value={f.trinityViolationExplanation} onChange={(v) => u("trinityViolationExplanation", v)}
+            placeholder="Explain the Trinity violation…" rows={2} />
+        )}
+      </div>
+
+      <SliderRow label="Discipline score" value={f.disciplineScore} onChange={(v) => u("disciplineScore", v)} />
+
+      <div className="space-y-2">
+        <SectionLabel>Screenshots</SectionLabel>
+        <ScreenshotUpload value={f.screenshots} onChange={(ids) => u("screenshots", ids)} maxFiles={5} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function EditTradePage() {
   const router = useRouter();
@@ -50,12 +682,12 @@ export default function EditTradePage() {
   const accounts = useQuery(api.accounts.list) as { _id: string; name: string }[] | undefined;
   const updateTrade = useMutation(api.trades.update);
 
-  const [activeStep, setActiveStep] = useState("basic");
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [step, setStep] = useState(0);
+  const [f, setF] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (trade && Object.keys(formData).length === 0) {
-      setFormData({
+    if (trade && Object.keys(f).length === 0) {
+      setF({
         accountId: trade.accountId || "",
         instrument: trade.instrument || "EUR/USD",
         direction: trade.direction || "LONG",
@@ -160,1147 +792,217 @@ export default function EditTradePage() {
         screenshots: trade.screenshots || [],
       });
     }
-  }, [trade]);
+  }, [trade]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const u = (key: string, value: any) => setF((prev) => ({ ...prev, [key]: value }));
+
+  const handleSave = async (partial = false) => {
+    if (!partial && !isComplete(f)) {
+      toast.warning("Fill required fields: instrument, direction, entry, SL, risk amount.");
+      return;
+    }
     try {
       await updateTrade({
         id: tradeId,
         updates: {
-          accountId: formData.accountId && formData.accountId !== "__none__" ? formData.accountId as Id<"accounts"> : undefined,
-          instrument: formData.instrument,
-          direction: formData.direction,
-          entryPrice: Number(formData.entryPrice),
-          exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
-          positionSize: Number(formData.positionSize),
-          commission: Number(formData.commission),
-          environment: formData.environment,
-          dailyBias: formData.dailyBias,
-          externalStructure: formData.externalStructure,
-          majorLiquidityPools: formData.majorLiquidityPools,
-          internalStructure: formData.internalStructure,
-          currentRange: formData.currentRange,
-          minorPushStatus: formData.minorPushStatus,
-          session: formData.session,
-          isInKillzone: formData.isInKillzone,
-          poiType: formData.poiType,
-          poiQuality: formData.poiQuality,
-          poiDescription: formData.poiDescription || undefined,
-          gapSize: formData.gapSize ? Number(formData.gapSize) : undefined,
-          inducementResting: formData.inducementResting || undefined,
-          inducementType: formData.inducementType || undefined,
-          distanceFromPoi: formData.distanceFromPoi ? Number(formData.distanceFromPoi) : undefined,
-          cleanBreak: formData.cleanBreak,
-          breakSize: formData.breakSize ? Number(formData.breakSize) : undefined,
-          trapSwept: formData.trapSwept,
-          trapType: formData.trapType || undefined,
-          trapLocation: formData.trapLocation ? Number(formData.trapLocation) : undefined,
-          trapTappedCount: formData.trapTappedCount ? Number(formData.trapTappedCount) : undefined,
-          trapCleanliness: formData.trapCleanliness || undefined,
-          missingInducement: formData.missingInducement,
-          ltfEntryTimeframe: formData.ltfEntryTimeframe || undefined,
-          smcType: formData.smcType || undefined,
-          smsAfterTrap: formData.smsAfterTrap,
-          bmsPattern: formData.bmsPattern || undefined,
-          bmsConfidence: Number(formData.bmsConfidence),
-          rtoApplicable: formData.rtoApplicable,
-          rtoDistance: formData.rtoDistance ? Number(formData.rtoDistance) : undefined,
-          entryConfidence: Number(formData.entryConfidence),
-          tradeModel: formData.tradeModel,
-          narrativeAlignment: formData.narrativeAlignment,
-          tradingWithMainPush: formData.tradingWithMainPush,
-          noNarrativeMisalignment: formData.noNarrativeMisalignment,
-          clearLiquidityEngineering: formData.clearLiquidityEngineering || undefined,
-          institutionsReasoned: formData.institutionsReasoned || undefined,
-          poiMitigationStatus: formData.poiMitigationStatus,
-          approachDynamics: formData.approachDynamics || undefined,
-          stopLossPrice: Number(formData.stopLossPrice),
-          stopLossPlacement: formData.stopLossPlacement,
-          stopLossPips: Number(formData.stopLossPips),
-          stopLossQuality: formData.stopLossQuality,
-          riskAmount: Number(formData.riskAmount),
-          riskPercentage: Number(formData.riskPercentage),
-          target1RR: Number(formData.target1RR),
-          target2RR: Number(formData.target2RR),
-          timeInTradeMinutes: formData.timeInTradeMinutes ? Number(formData.timeInTradeMinutes) : undefined,
-          maxProfitReached: formData.maxProfitReached ? Number(formData.maxProfitReached) : undefined,
-          maxDrawdown: formData.maxDrawdown ? Number(formData.maxDrawdown) : undefined,
-          target1Hit: formData.target1Hit || undefined,
-          stopMovedToBE: formData.stopMovedToBE || undefined,
-          target2Status: formData.target2Status || undefined,
-          manualExit: formData.manualExit || undefined,
-          manualExitReason: formData.manualExitReason || undefined,
-          tradeClosureReason: formData.tradeClosureReason,
-          pnl: formData.pnl ? Number(formData.pnl) : undefined,
-          winLossStatus: formData.winLossStatus,
-          tradeQualityScore: Number(formData.tradeQualityScore),
-          poiQualityRating: formData.poiQualityRating,
-          inducementQualityRating: formData.inducementQualityRating,
-          trinityAlignmentRating: formData.trinityAlignmentRating,
-          riskExecutionRating: formData.riskExecutionRating,
-          disciplineRating: formData.disciplineRating,
-          whyEntered: formData.whyEntered || undefined,
-          playedAsExpected: formData.playedAsExpected,
-          whatWentWrong: formData.whatWentWrong || undefined,
-          whatWentRight: formData.whatWentRight || undefined,
-          institutionalLessons: formData.institutionalLessons || undefined,
-          followedTrinity: formData.followedTrinity,
-          correctKillzone: formData.correctKillzone,
-          respectedHTFNarrative: formData.respectedHTFNarrative,
-          waitedForInducement: formData.waitedForInducement,
-          managedRiskPerPlan: formData.managedRiskPerPlan,
-          disciplineScore: Number(formData.disciplineScore),
-          screenshots: formData.screenshots.length > 0 ? formData.screenshots : undefined,
+          accountId: f.accountId && f.accountId !== "__none__" ? f.accountId as Id<"accounts"> : undefined,
+          instrument: f.instrument,
+          direction: f.direction,
+          entryPrice: Number(f.entryPrice),
+          exitPrice: f.exitPrice ? Number(f.exitPrice) : undefined,
+          positionSize: Number(f.positionSize),
+          commission: Number(f.commission),
+          environment: f.environment,
+          dailyBias: f.dailyBias,
+          externalStructure: f.externalStructure,
+          majorLiquidityPools: f.majorLiquidityPools,
+          internalStructure: f.internalStructure,
+          currentRange: f.currentRange || undefined,
+          minorPushStatus: f.minorPushStatus || undefined,
+          session: f.session,
+          isInKillzone: f.isInKillzone,
+          poiType: f.poiType,
+          poiQuality: f.poiQuality,
+          poiDescription: f.poiDescription || undefined,
+          gapSize: f.gapSize ? Number(f.gapSize) : undefined,
+          inducementResting: f.inducementResting || undefined,
+          inducementType: f.inducementType || undefined,
+          distanceFromPoi: f.distanceFromPoi ? Number(f.distanceFromPoi) : undefined,
+          liquidityPoolDescription: f.liquidityPoolDescription || undefined,
+          cleanBreak: f.cleanBreak || undefined,
+          breakSize: f.breakSize ? Number(f.breakSize) : undefined,
+          trapSwept: f.trapSwept,
+          trapType: f.trapType || undefined,
+          trapLocation: f.trapLocation ? Number(f.trapLocation) : undefined,
+          trapTappedCount: f.trapTappedCount ? Number(f.trapTappedCount) : undefined,
+          trapCleanliness: f.trapCleanliness || undefined,
+          liquidityEngineering: f.liquidityEngineering || undefined,
+          liquidityTappedCount: f.liquidityTappedCount ? Number(f.liquidityTappedCount) : undefined,
+          retailBehavior: f.retailBehavior || undefined,
+          missingInducement: f.missingInducement,
+          ltfEntryTimeframe: f.ltfEntryTimeframe || undefined,
+          smcType: f.smcType || undefined,
+          smsAfterTrap: f.smsAfterTrap,
+          bmsPattern: f.bmsPattern || undefined,
+          bmsConfidence: Number(f.bmsConfidence),
+          rtoApplicable: f.rtoApplicable,
+          rtoDistance: f.rtoDistance ? Number(f.rtoDistance) : undefined,
+          entryConfidence: Number(f.entryConfidence),
+          tradeModel: f.tradeModel,
+          narrativeAlignment: f.narrativeAlignment,
+          tradingWithMainPush: f.tradingWithMainPush,
+          noNarrativeMisalignment: f.noNarrativeMisalignment,
+          clearLiquidityEngineering: f.clearLiquidityEngineering || undefined,
+          institutionsReasoned: f.institutionsReasoned || undefined,
+          poiMitigationStatus: f.poiMitigationStatus,
+          approachDynamics: f.approachDynamics || undefined,
+          stopLossPrice: Number(f.stopLossPrice),
+          stopLossPlacement: f.stopLossPlacement,
+          stopLossPips: Number(f.stopLossPips),
+          stopLossQuality: f.stopLossQuality,
+          riskAmount: Number(f.riskAmount),
+          riskPercentage: Number(f.riskPercentage),
+          target1RR: Number(f.target1RR),
+          target2RR: Number(f.target2RR),
+          target1Price: f.target1Price ? Number(f.target1Price) : undefined,
+          target2Price: f.target2Price ? Number(f.target2Price) : undefined,
+          timeInTradeMinutes: f.timeInTradeMinutes ? Number(f.timeInTradeMinutes) : undefined,
+          maxProfitReached: f.maxProfitReached ? Number(f.maxProfitReached) : undefined,
+          maxDrawdown: f.maxDrawdown ? Number(f.maxDrawdown) : undefined,
+          target1Hit: f.target1Hit || undefined,
+          target1HitPrice: f.target1HitPrice ? Number(f.target1HitPrice) : undefined,
+          stopMovedToBE: f.stopMovedToBE || undefined,
+          timeToTarget1: f.timeToTarget1 ? Number(f.timeToTarget1) : undefined,
+          target2Status: f.target2Status || undefined,
+          target2ClosedAt: f.target2ClosedAt ? Number(f.target2ClosedAt) : undefined,
+          finalRR: f.finalRR ? Number(f.finalRR) : undefined,
+          timeToClose: f.timeToClose ? Number(f.timeToClose) : undefined,
+          breakEvenStopsMoved: f.breakEvenStopsMoved || undefined,
+          manualExit: f.manualExit || undefined,
+          manualExitReason: f.manualExitReason || undefined,
+          manualExitAligned: f.manualExitAligned || undefined,
+          tradeClosureReason: f.tradeClosureReason,
+          pnl: f.pnl ? Number(f.pnl) : undefined,
+          pnlPercentage: f.pnlPercentage ? Number(f.pnlPercentage) : undefined,
+          winLossStatus: f.winLossStatus,
+          tradeQualityScore: Number(f.tradeQualityScore),
+          poiQualityRating: f.poiQualityRating,
+          inducementQualityRating: f.inducementQualityRating,
+          trinityAlignmentRating: f.trinityAlignmentRating,
+          riskExecutionRating: f.riskExecutionRating,
+          disciplineRating: f.disciplineRating,
+          whyEntered: f.whyEntered || undefined,
+          playedAsExpected: f.playedAsExpected,
+          expansionDescription: f.expansionDescription || undefined,
+          surpriseDescription: f.surpriseDescription || undefined,
+          whatWentWrong: f.whatWentWrong || undefined,
+          whatWentRight: f.whatWentRight || undefined,
+          institutionalLessons: f.institutionalLessons || undefined,
+          howAffectsNext: f.howAffectsNext || undefined,
+          followedTrinity: f.followedTrinity,
+          trinityViolationExplanation: f.trinityViolationExplanation || undefined,
+          correctKillzone: f.correctKillzone,
+          respectedHTFNarrative: f.respectedHTFNarrative,
+          waitedForInducement: f.waitedForInducement,
+          managedRiskPerPlan: f.managedRiskPerPlan,
+          disciplineScore: Number(f.disciplineScore),
+          screenshots: f.screenshots.length > 0 ? f.screenshots : undefined,
         },
       });
-      toast.success("Trade updated successfully!");
-      router.push(`/trades/${tradeId}`);
-    } catch (error) {
+      toast.success(partial ? "Changes saved!" : "Trade updated!");
+      if (!partial) router.push(`/trades/${tradeId}`);
+    } catch {
       toast.error("Failed to update trade");
     }
   };
 
-  if (!trade || Object.keys(formData).length === 0) {
+  if (!trade || Object.keys(f).length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-muted-foreground">Loading trade...</p>
+        <div className="space-y-3 text-center">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading trade…</p>
+        </div>
       </div>
     );
   }
 
-  const currentStepIndex = steps.findIndex((s) => s.id === activeStep);
-  const canGoBack = currentStepIndex > 0;
-  const canGoForward = currentStepIndex < steps.length - 1;
-  const isReflectionStep = activeStep === "reflection";
-  const isComplete = isTradeComplete(formData);
+  const isLast = step === STEPS.length - 1;
 
-  const handleUpdate = async (skipAutoSave?: boolean) => {
-    try {
-      await updateTrade({
-        id: tradeId,
-        updates: {
-          accountId: formData.accountId && formData.accountId !== "__none__" ? formData.accountId as Id<"accounts"> : undefined,
-          instrument: formData.instrument,
-          direction: formData.direction,
-          entryPrice: Number(formData.entryPrice),
-          exitPrice: formData.exitPrice ? Number(formData.exitPrice) : undefined,
-          positionSize: Number(formData.positionSize),
-          commission: Number(formData.commission),
-          environment: formData.environment,
-          dailyBias: formData.dailyBias,
-          externalStructure: formData.externalStructure,
-          majorLiquidityPools: formData.majorLiquidityPools,
-          internalStructure: formData.internalStructure,
-          currentRange: formData.currentRange || undefined,
-          minorPushStatus: formData.minorPushStatus || undefined,
-          session: formData.session,
-          isInKillzone: formData.isInKillzone,
-          poiType: formData.poiType,
-          poiQuality: formData.poiQuality,
-          poiDescription: formData.poiDescription || undefined,
-          gapSize: formData.gapSize ? Number(formData.gapSize) : undefined,
-          inducementResting: formData.inducementResting || undefined,
-          inducementType: formData.inducementType || undefined,
-          distanceFromPoi: formData.distanceFromPoi ? Number(formData.distanceFromPoi) : undefined,
-          liquidityPoolDescription: formData.liquidityPoolDescription || undefined,
-          cleanBreak: formData.cleanBreak || undefined,
-          breakSize: formData.breakSize ? Number(formData.breakSize) : undefined,
-          trapSwept: formData.trapSwept,
-          trapType: formData.trapType || undefined,
-          trapLocation: formData.trapLocation ? Number(formData.trapLocation) : undefined,
-          trapTappedCount: formData.trapTappedCount ? Number(formData.trapTappedCount) : undefined,
-          trapCleanliness: formData.trapCleanliness || undefined,
-          liquidityEngineering: formData.liquidityEngineering || undefined,
-          liquidityTappedCount: formData.liquidityTappedCount ? Number(formData.liquidityTappedCount) : undefined,
-          retailBehavior: formData.retailBehavior || undefined,
-          missingInducement: formData.missingInducement,
-          ltfEntryTimeframe: formData.ltfEntryTimeframe || undefined,
-          smcType: formData.smcType || undefined,
-          smsAfterTrap: formData.smsAfterTrap,
-          bmsPattern: formData.bmsPattern || undefined,
-          bmsConfidence: Number(formData.bmsConfidence),
-          rtoApplicable: formData.rtoApplicable,
-          rtoDistance: formData.rtoDistance ? Number(formData.rtoDistance) : undefined,
-          entryConfidence: Number(formData.entryConfidence),
-          tradeModel: formData.tradeModel,
-          narrativeAlignment: formData.narrativeAlignment,
-          tradingWithMainPush: formData.tradingWithMainPush,
-          noNarrativeMisalignment: formData.noNarrativeMisalignment,
-          clearLiquidityEngineering: formData.clearLiquidityEngineering || undefined,
-          institutionsReasoned: formData.institutionsReasoned || undefined,
-          poiMitigationStatus: formData.poiMitigationStatus,
-          approachDynamics: formData.approachDynamics || undefined,
-          stopLossPrice: Number(formData.stopLossPrice),
-          stopLossPlacement: formData.stopLossPlacement,
-          stopLossPips: Number(formData.stopLossPips),
-          stopLossQuality: formData.stopLossQuality,
-          riskAmount: Number(formData.riskAmount),
-          riskPercentage: Number(formData.riskPercentage),
-          target1RR: Number(formData.target1RR),
-          target2RR: Number(formData.target2RR),
-          target1Price: formData.target1Price ? Number(formData.target1Price) : undefined,
-          target2Price: formData.target2Price ? Number(formData.target2Price) : undefined,
-          timeInTradeMinutes: formData.timeInTradeMinutes ? Number(formData.timeInTradeMinutes) : undefined,
-          maxProfitReached: formData.maxProfitReached ? Number(formData.maxProfitReached) : undefined,
-          maxDrawdown: formData.maxDrawdown ? Number(formData.maxDrawdown) : undefined,
-          target1Hit: formData.target1Hit || undefined,
-          target1HitPrice: formData.target1HitPrice ? Number(formData.target1HitPrice) : undefined,
-          stopMovedToBE: formData.stopMovedToBE || undefined,
-          timeToTarget1: formData.timeToTarget1 ? Number(formData.timeToTarget1) : undefined,
-          target2Status: formData.target2Status || undefined,
-          target2ClosedAt: formData.target2ClosedAt ? Number(formData.target2ClosedAt) : undefined,
-          finalRR: formData.finalRR ? Number(formData.finalRR) : undefined,
-          timeToClose: formData.timeToClose ? Number(formData.timeToClose) : undefined,
-          breakEvenStopsMoved: formData.breakEvenStopsMoved || undefined,
-          manualExit: formData.manualExit || undefined,
-          manualExitReason: formData.manualExitReason || undefined,
-          manualExitAligned: formData.manualExitAligned || undefined,
-          tradeClosureReason: formData.tradeClosureReason,
-          pnl: formData.pnl ? Number(formData.pnl) : undefined,
-          pnlPercentage: formData.pnlPercentage ? Number(formData.pnlPercentage) : undefined,
-          winLossStatus: formData.winLossStatus,
-          tradeQualityScore: Number(formData.tradeQualityScore),
-          poiQualityRating: formData.poiQualityRating,
-          inducementQualityRating: formData.inducementQualityRating,
-          trinityAlignmentRating: formData.trinityAlignmentRating,
-          riskExecutionRating: formData.riskExecutionRating,
-          disciplineRating: formData.disciplineRating,
-          whyEntered: formData.whyEntered || undefined,
-          playedAsExpected: formData.playedAsExpected,
-          expansionDescription: formData.expansionDescription || undefined,
-          surpriseDescription: formData.surpriseDescription || undefined,
-          whatWentWrong: formData.whatWentWrong || undefined,
-          whatWentRight: formData.whatWentRight || undefined,
-          institutionalLessons: formData.institutionalLessons || undefined,
-          howAffectsNext: formData.howAffectsNext || undefined,
-          followedTrinity: formData.followedTrinity,
-          trinityViolationExplanation: formData.trinityViolationExplanation || undefined,
-          correctKillzone: formData.correctKillzone,
-          respectedHTFNarrative: formData.respectedHTFNarrative,
-          waitedForInducement: formData.waitedForInducement,
-          managedRiskPerPlan: formData.managedRiskPerPlan,
-          disciplineScore: Number(formData.disciplineScore),
-          screenshots: formData.screenshots.length > 0 ? formData.screenshots : undefined,
-        },
-      });
-      if (!skipAutoSave) {
-        toast.success("Trade updated successfully!");
-        router.push(`/trades/${tradeId}`);
-      }
-    } catch (error) {
-      toast.error("Failed to update trade");
-    }
-  };
-
-  const handleStepChange = (newStep: string) => {
-    if (isReflectionStep && canGoForward) {
-      handleUpdate(true);
-    }
-    setActiveStep(newStep);
-  };
+  const panels = [
+    <StepBasics     key="basics"      f={f} u={u} accounts={accounts || []} />,
+    <StepContext    key="context"     f={f} u={u} />,
+    <StepSetup      key="setup"       f={f} u={u} />,
+    <StepRisk       key="risk"        f={f} u={u} />,
+    <StepOutcome    key="outcome"     f={f} u={u} />,
+    <StepReflection key="reflection"  f={f} u={u} />,
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon-sm" asChild>
-          <Link href={`/trades/${tradeId}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Edit Trade</h1>
-          <p className="text-sm text-muted-foreground">{trade.instrument} {trade.direction}</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link href={`/trades/${tradeId}`}><ArrowLeft className="h-4 w-4" /></Link>
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Edit Trade</h1>
+            <p className="text-xs text-muted-foreground">{trade.instrument} · {trade.direction}</p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => handleSave(true)}>
+          Save changes
+        </Button>
       </div>
 
-      <div className="flex gap-6">
-        <nav className="hidden lg:flex flex-col gap-1 w-52 shrink-0">
-          {steps.map((step, index) => (
-            <button
-              key={step.id}
-              onClick={() => setActiveStep(step.id)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
-                activeStep === step.id
-                  ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50"
-                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-50"
-              }`}
-            >
-              <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs ${
-                activeStep === step.id
-                  ? "bg-emerald-600 text-white"
-                  : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400"
-              }`}>
-                {index + 1}
-              </span>
-              {step.short}
+      {/* Step rail */}
+      <div className="flex items-center gap-1">
+        {STEPS.map((s, i) => {
+          const Icon = s.icon;
+          const done = i < step;
+          const active = i === step;
+          return (
+            <button key={s.id} type="button" onClick={() => setStep(i)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150",
+                active ? "bg-foreground text-background" : done ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+              {done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Icon className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{s.label}</span>
             </button>
-          ))}
-        </nav>
+          );
+        })}
+        <div className="flex-1 h-px bg-border ml-1" />
+        <span className="text-xs text-muted-foreground tabular-nums">{step + 1}/{STEPS.length}</span>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden">
-              {steps.map((step, index) => (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveStep(step.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    activeStep === step.id
-                      ? "bg-emerald-600 text-white"
-                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                  }`}
-                >
-                  {index + 1}. {step.short}
-                </button>
-              ))}
-            </div>
-
-            <StepContent
-              step={activeStep}
-              formData={formData}
-              setFormData={setFormData}
-              accounts={accounts || []}
-            />
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex gap-2">
-                {canGoBack && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setActiveStep(steps[currentStepIndex - 1].id)}
-                  >
-                    Previous
-                  </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" type="button" asChild>
-                  <Link href={`/trades/${tradeId}`}>Cancel</Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleUpdate(true)}
-                >
-                  Save Changes
-                </Button>
-                {canGoForward ? (
-                  <Button
-                    type="button"
-                    onClick={() => handleStepChange(steps[currentStepIndex + 1].id)}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button type="submit" className="gap-2">
-                    <Save className="h-4 w-4" />
-                    Update Trade
-                  </Button>
-                )}
-              </div>
-            </div>
-          </form>
+      {/* Step panel */}
+      <div className="rounded-2xl border border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900 p-6 min-h-[380px]">
+        <div className="mb-6">
+          <h2 className="text-base font-semibold">{STEPS[step].label}</h2>
+          <p className="text-sm text-muted-foreground">{STEPS[step].description}</p>
         </div>
+        {panels[step]}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm"
+          onClick={() => step === 0 ? router.push(`/trades/${tradeId}`) : setStep(step - 1)}>
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          {step === 0 ? "Cancel" : "Back"}
+        </Button>
+        {isLast ? (
+          <Button size="sm" onClick={() => handleSave(false)} className="gap-2">
+            <Save className="h-3.5 w-3.5" />Update Trade
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => setStep(step + 1)}>
+            Next <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        )}
       </div>
     </div>
   );
-}
-
-function StepContent({
-  step,
-  formData,
-  setFormData,
-  accounts,
-}: {
-  step: string;
-  formData: any;
-  setFormData: React.Dispatch<React.SetStateAction<any>>;
-  accounts: { _id: string; name: string }[];
-}) {
-  const update = (key: string, value: any) => setFormData({ ...formData, [key]: value });
-
-  switch (step) {
-    case "basic":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Core trade details</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Account</Label>
-              <Select value={formData.accountId} onValueChange={(v) => update("accountId", v)}>
-                <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No Account</SelectItem>
-                  {accounts?.map((a: { _id: string; name: string }) => (
-                    <SelectItem key={a._id} value={a._id as string}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Instrument</Label>
-              <Select value={formData.instrument} onValueChange={(v) => update("instrument", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {instruments.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Direction</Label>
-              <Select value={formData.direction} onValueChange={(v) => update("direction", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LONG">LONG</SelectItem>
-                  <SelectItem value="SHORT">SHORT</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Entry Price</Label>
-              <Input type="number" step="0.00001" value={formData.entryPrice} onChange={(e) => update("entryPrice", e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Exit Price</Label>
-              <Input type="number" step="0.00001" value={formData.exitPrice} onChange={(e) => update("exitPrice", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Position Size</Label>
-              <Input type="number" step="0.01" value={formData.positionSize} onChange={(e) => update("positionSize", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Commission ($)</Label>
-              <Input type="number" step="0.01" value={formData.commission} onChange={(e) => update("commission", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Environment</Label>
-              <Select value={formData.environment} onValueChange={(v) => update("environment", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BACKTESTING">Backtesting</SelectItem>
-                  <SelectItem value="DEMO">Demo</SelectItem>
-                  <SelectItem value="LIVE">Live</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "direction":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Direction &amp; Analysis</CardTitle>
-            <CardDescription>WWA Framework - Daily structure and bias</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Daily Bias</Label>
-                <Select value={formData.dailyBias} onValueChange={(v) => update("dailyBias", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BULLISH">BULLISH</SelectItem>
-                    <SelectItem value="BEARISH">BEARISH</SelectItem>
-                    <SelectItem value="NEUTRAL">NEUTRAL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Session</Label>
-                <Select value={formData.session} onValueChange={(v) => update("session", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ASIA">ASIA</SelectItem>
-                    <SelectItem value="LONDON">LONDON</SelectItem>
-                    <SelectItem value="NEW_YORK">NEW YORK</SelectItem>
-                    <SelectItem value="OTHER">OTHER</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="isInKillzone" checked={formData.isInKillzone} onCheckedChange={(checked) => update("isInKillzone", !!checked)} />
-              <Label htmlFor="isInKillzone">In Killzone (London/NY Open)</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>External Structure (Main Push)</Label>
-              <Textarea value={formData.externalStructure} onChange={(e) => update("externalStructure", e.target.value)} rows={3} placeholder="Describe the main push and structure..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Major Liquidity Pools</Label>
-              <Textarea value={formData.majorLiquidityPools} onChange={(e) => update("majorLiquidityPools", e.target.value)} rows={2} placeholder="Asia High, Asia Low, Previous D POI..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Internal Structure</Label>
-              <Textarea value={formData.internalStructure} onChange={(e) => update("internalStructure", e.target.value)} rows={2} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Current Range</Label>
-                <Input value={formData.currentRange} onChange={(e) => update("currentRange", e.target.value)} placeholder="e.g. 100 pips" />
-              </div>
-              <div className="space-y-2">
-                <Label>Minor Push Status</Label>
-                <Input value={formData.minorPushStatus} onChange={(e) => update("minorPushStatus", e.target.value)} placeholder="e.g. Continuing, Exhausting" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "poi":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Point of Interest (POI)</CardTitle>
-            <CardDescription>WWA Framework - Where institutions react</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>POI Type</Label>
-                <Select value={formData.poiType} onValueChange={(v) => update("poiType", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EXTREME">EXTREME (Origin of Main Push)</SelectItem>
-                    <SelectItem value="DECISIONAL">DECISIONAL (Last Pullback)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>POI Mitigation Status</Label>
-                <Select value={formData.poiMitigationStatus} onValueChange={(v) => update("poiMitigationStatus", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UNMITIGATED">Unmitigated (Fresh Zone)</SelectItem>
-                    <SelectItem value="MITIGATED_ONCE">Mitigated Once</SelectItem>
-                    <SelectItem value="WEAKENED">Weakened (Multiple taps)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>POI Quality (select all that apply)</Label>
-              <div className="flex flex-wrap gap-4">
-                {poiQualityOptions.map((opt) => (
-                  <div key={opt} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`poi-${opt}`}
-                      checked={formData.poiQuality?.includes(opt)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          update("poiQuality", [...(formData.poiQuality || []), opt]);
-                        } else {
-                          update("poiQuality", (formData.poiQuality || []).filter((q: string) => q !== opt));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`poi-${opt}`}>{opt.replace(/_/g, " ")}</Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>POI Description</Label>
-              <Textarea value={formData.poiDescription} onChange={(e) => update("poiDescription", e.target.value)} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Gap Size (pips)</Label>
-                <Input type="number" step="0.1" value={formData.gapSize} onChange={(e) => update("gapSize", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Break Size (pips)</Label>
-                <Input type="number" step="0.1" value={formData.breakSize} onChange={(e) => update("breakSize", e.target.value)} />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Inducement Resting</Label>
-                <Input value={formData.inducementResting} onChange={(e) => update("inducementResting", e.target.value)} placeholder="e.g. Above, Below" />
-              </div>
-              <div className="space-y-2">
-                <Label>Inducement Type</Label>
-                <Input value={formData.inducementType} onChange={(e) => update("inducementType", e.target.value)} placeholder="e.g. Double, Stacked" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Distance from POI (pips)</Label>
-                <Input type="number" step="0.1" value={formData.distanceFromPoi} onChange={(e) => update("distanceFromPoi", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Liquidity Pool Description</Label>
-                <Input value={formData.liquidityPoolDescription} onChange={(e) => update("liquidityPoolDescription", e.target.value)} placeholder="Describe the pool..." />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="cleanBreak" checked={formData.cleanBreak} onCheckedChange={(checked) => update("cleanBreak", !!checked)} />
-              <Label htmlFor="cleanBreak">Clean Break (convincing structure break)</Label>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "traps":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Traps &amp; Inducement</CardTitle>
-            <CardDescription>WWA Framework - Liquidity engineering and traps</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Trap Swept?</Label>
-                <Select value={formData.trapSwept} onValueChange={(v) => update("trapSwept", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="YES">YES</SelectItem>
-                    <SelectItem value="NO">NO</SelectItem>
-                    <SelectItem value="PARTIAL">PARTIAL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Trap Type</Label>
-                <Input value={formData.trapType} onChange={(e) => update("trapType", e.target.value)} placeholder="Inducement of Control/Target/SMT" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Trap Location (pips from POI)</Label>
-                <Input type="number" step="0.1" value={formData.trapLocation} onChange={(e) => update("trapLocation", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Trap Tapped Count</Label>
-                <Input type="number" value={formData.trapTappedCount} onChange={(e) => update("trapTappedCount", e.target.value)} placeholder="How many times tapped" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Trap Cleanliness</Label>
-                <Input value={formData.trapCleanliness} onChange={(e) => update("trapCleanliness", e.target.value)} placeholder="e.g. Clean, Messy, Stacked" />
-              </div>
-              <div className="space-y-2">
-                <Label>Liquidity Engineering</Label>
-                <Input value={formData.liquidityEngineering} onChange={(e) => update("liquidityEngineering", e.target.value)} placeholder="e.g. Stacked, Swept" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Liquidity Tapped Count</Label>
-                <Input type="number" value={formData.liquidityTappedCount} onChange={(e) => update("liquidityTappedCount", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Retail Behavior</Label>
-                <Input value={formData.retailBehavior} onChange={(e) => update("retailBehavior", e.target.value)} placeholder="e.g. Chasing, Stop hunting" />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="missingInducement" checked={formData.missingInducement} onCheckedChange={(checked) => update("missingInducement", !!checked)} />
-              <Label htmlFor="missingInducement">Missing Inducement (Reduces probability)</Label>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "trinity":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>The Trinity</CardTitle>
-            <CardDescription>All 3 required for high-probability trade</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className={`p-4 rounded-lg border ${formData.trapSwept === "YES" ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950" : "border-red-500 bg-red-50 dark:bg-red-950"}`}>
-                <p className="font-medium">1. Inducement</p>
-                <p className="text-sm text-muted-foreground">{formData.trapSwept === "YES" ? "Present" : "Missing"}</p>
-              </div>
-              <div className={`p-4 rounded-lg border ${formData.smsAfterTrap ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950" : "border-red-500 bg-red-50 dark:bg-red-950"}`}>
-                <p className="font-medium">2. LTC Confirmation</p>
-                <p className="text-sm text-muted-foreground">{formData.smsAfterTrap ? "SMS after trap" : "Not confirmed"}</p>
-              </div>
-              <div className={`p-4 rounded-lg border ${formData.isInKillzone ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950" : "border-red-500 bg-red-50 dark:bg-red-950"}`}>
-                <p className="font-medium">3. Killzone</p>
-                <p className="text-sm text-muted-foreground">{formData.isInKillzone ? "In Zone" : "Outside"}</p>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex items-center space-x-2">
-              <Checkbox id="smsAfterTrap" checked={formData.smsAfterTrap} onCheckedChange={(checked) => update("smsAfterTrap", !!checked)} />
-              <Label htmlFor="smsAfterTrap">SMS (Shift in Market Structure) after trap sweep</Label>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>LTF Entry Timeframe</Label>
-                <Select value={formData.ltfEntryTimeframe} onValueChange={(v) => update("ltfEntryTimeframe", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1M">1M</SelectItem>
-                    <SelectItem value="5M">5M</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>SMG Type</Label>
-                <Input value={formData.smcType} onChange={(e) => update("smcType", e.target.value)} placeholder="e.g. Higher High + Higher Low" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>BMS Pattern</Label>
-                <Input value={formData.bmsPattern} onChange={(e) => update("bmsPattern", e.target.value)} placeholder="e.g. BOS, Change of Character" />
-              </div>
-              <div className="space-y-2">
-                <Label>BMS Confidence (1-10)</Label>
-                <Input type="number" min="1" max="10" value={formData.bmsConfidence} onChange={(e) => update("bmsConfidence", e.target.value)} />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Entry Confidence (1-10)</Label>
-                <Input type="number" min="1" max="10" value={formData.entryConfidence} onChange={(e) => update("entryConfidence", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>RTO (Retest) Applicable?</Label>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox id="rtoApplicable" checked={formData.rtoApplicable} onCheckedChange={(checked) => update("rtoApplicable", !!checked)} />
-                  <Label htmlFor="rtoApplicable">Yes</Label>
-                </div>
-              </div>
-            </div>
-            {formData.rtoApplicable && (
-              <div className="space-y-2">
-                <Label>RTO Distance (pips)</Label>
-                <Input type="number" step="0.1" value={formData.rtoDistance} onChange={(e) => update("rtoDistance", e.target.value)} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      );
-
-    case "execution":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trade Execution</CardTitle>
-            <CardDescription>Narrative alignment and approach</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Trade Model</Label>
-              <Select value={formData.tradeModel} onValueChange={(v) => update("tradeModel", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CONTINUATION">CONTINUATION MODEL</SelectItem>
-                  <SelectItem value="REVERSAL">REVERSAL MODEL</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Narrative Alignment Check</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="narrativeAlignment" checked={formData.narrativeAlignment} onCheckedChange={(checked) => update("narrativeAlignment", !!checked)} />
-                  <Label htmlFor="narrativeAlignment">HTF narrative supports this trade</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="tradingWithMainPush" checked={formData.tradingWithMainPush} onCheckedChange={(checked) => update("tradingWithMainPush", !!checked)} />
-                  <Label htmlFor="tradingWithMainPush">Trading WITH the Main Push</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="noNarrativeMisalignment" checked={formData.noNarrativeMisalignment} onCheckedChange={(checked) => update("noNarrativeMisalignment", !!checked)} />
-                  <Label htmlFor="noNarrativeMisalignment">No narrative misalignment</Label>
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Clear Liquidity Engineering</Label>
-                <Select value={formData.clearLiquidityEngineering} onValueChange={(v) => update("clearLiquidityEngineering", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CLEAR">CLEAR</SelectItem>
-                    <SelectItem value="UNCLEAR">UNCLEAR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Institutions Reasoned</Label>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox id="institutionsReasoned" checked={formData.institutionsReasoned} onCheckedChange={(checked) => update("institutionsReasoned", !!checked)} />
-                  <Label htmlFor="institutionsReasoned">Yes</Label>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Approach Dynamics</Label>
-              <Input value={formData.approachDynamics} onChange={(e) => update("approachDynamics", e.target.value)} placeholder="Compression (CP) / V-Shape / Other" />
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "risk":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Risk Management</CardTitle>
-            <CardDescription>Stop loss and position sizing</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Stop Loss Price</Label>
-              <Input type="number" step="0.00001" value={formData.stopLossPrice} onChange={(e) => update("stopLossPrice", e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Stop Loss Size (pips)</Label>
-              <Input type="number" step="0.1" value={formData.stopLossPips} onChange={(e) => update("stopLossPips", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Stop Loss Placement</Label>
-              <Select value={formData.stopLossPlacement} onValueChange={(v) => update("stopLossPlacement", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="IFC_ABOVE">IFC ABOVE</SelectItem>
-                  <SelectItem value="IFC_BELOW">IFC BELOW</SelectItem>
-                  <SelectItem value="REFINED_WICK">REFINED WICK</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Risk Amount ($)</Label>
-              <Input type="number" step="0.01" value={formData.riskAmount} onChange={(e) => update("riskAmount", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Risk % of Account</Label>
-              <Input type="number" step="0.1" value={formData.riskPercentage} onChange={(e) => update("riskPercentage", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Target 1 RR</Label>
-              <Input type="number" step="0.1" value={formData.target1RR} onChange={(e) => update("target1RR", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Target 2 RR</Label>
-              <Input type="number" step="0.1" value={formData.target2RR} onChange={(e) => update("target2RR", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Target 1 Price</Label>
-              <Input type="number" step="0.00001" value={formData.target1Price} onChange={(e) => update("target1Price", e.target.value)} placeholder="Optional" />
-            </div>
-            <div className="space-y-2">
-              <Label>Target 2 Price</Label>
-              <Input type="number" step="0.00001" value={formData.target2Price} onChange={(e) => update("target2Price", e.target.value)} placeholder="Optional" />
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-case "postentry":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Post-Entry Management</CardTitle>
-            <CardDescription>Trade progression and management</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Time in Trade (minutes)</Label>
-                <Input type="number" value={formData.timeInTradeMinutes} onChange={(e) => update("timeInTradeMinutes", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Max Profit Reached (pips)</Label>
-                <Input type="number" step="0.1" value={formData.maxProfitReached} onChange={(e) => update("maxProfitReached", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Max Drawdown (pips)</Label>
-                <Input type="number" step="0.1" value={formData.maxDrawdown} onChange={(e) => update("maxDrawdown", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Trade Closure Reason</Label>
-                <Select value={formData.tradeClosureReason} onValueChange={(v) => update("tradeClosureReason", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OPEN">Open</SelectItem>
-                    <SelectItem value="HIT_TARGET_1_RUNNING">HIT TARGET 1 &amp; RUNNING</SelectItem>
-                    <SelectItem value="HIT_TARGET_2_COMPLETELY">HIT TARGET 2 COMPLETELY</SelectItem>
-                    <SelectItem value="STOPPED_OUT">STOPPED OUT</SelectItem>
-                    <SelectItem value="MANUAL_EXIT">MANUAL EXIT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="target1Hit" checked={formData.target1Hit} onCheckedChange={(checked) => update("target1Hit", !!checked)} />
-              <Label htmlFor="target1Hit">Target 1 Hit?</Label>
-            </div>
-            {formData.target1Hit && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Target 1 Hit Price</Label>
-                  <Input type="number" step="0.00001" value={formData.target1HitPrice} onChange={(e) => update("target1HitPrice", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Time to Target 1 (minutes)</Label>
-                  <Input type="number" value={formData.timeToTarget1} onChange={(e) => update("timeToTarget1", e.target.value)} />
-                </div>
-              </div>
-            )}
-            <div className="flex items-center space-x-2">
-              <Checkbox id="stopMovedToBE" checked={formData.stopMovedToBE} onCheckedChange={(checked) => update("stopMovedToBE", !!checked)} />
-              <Label htmlFor="stopMovedToBE">Stop Moved to Break Even?</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="manualExit" checked={formData.manualExit} onCheckedChange={(checked) => update("manualExit", !!checked)} />
-              <Label htmlFor="manualExit">Manual Exit?</Label>
-            </div>
-            {formData.manualExit && (
-              <div className="space-y-2">
-                <Label>Manual Exit Reason</Label>
-                <Input value={formData.manualExitReason} onChange={(e) => update("manualExitReason", e.target.value)} />
-              </div>
-            )}
-            <div className="flex items-center space-x-2">
-              <Checkbox id="manualExitAligned" checked={formData.manualExitAligned} onCheckedChange={(checked) => update("manualExitAligned", !!checked)} />
-              <Label htmlFor="manualExitAligned">Manual Exit Aligned with Plan?</Label>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Target 2 Status</Label>
-                <Input value={formData.target2Status} onChange={(e) => update("target2Status", e.target.value)} placeholder="e.g. Running, Hit, Not Hit" />
-              </div>
-              <div className="space-y-2">
-                <Label>Target 2 Closed At</Label>
-                <Input type="number" value={formData.target2ClosedAt} onChange={(e) => update("target2ClosedAt", e.target.value)} placeholder="Timestamp" />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Final RR</Label>
-                <Input type="number" step="0.1" value={formData.finalRR} onChange={(e) => update("finalRR", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Time to Close (minutes)</Label>
-                <Input type="number" value={formData.timeToClose} onChange={(e) => update("timeToClose", e.target.value)} />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="breakEvenStopsMoved" checked={formData.breakEvenStopsMoved} onCheckedChange={(checked) => update("breakEvenStopsMoved", !!checked)} />
-              <Label htmlFor="breakEvenStopsMoved">Break Even Stops Moved?</Label>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "outcome":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trade Outcome</CardTitle>
-            <CardDescription>Final results and quality assessment</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>P&amp;L ($)</Label>
-                <Input type="number" step="0.01" value={formData.pnl} onChange={(e) => update("pnl", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>P&amp;L (%)</Label>
-                <Input type="number" step="0.1" value={formData.pnlPercentage} onChange={(e) => update("pnlPercentage", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Win/Loss Status</Label>
-                <Select value={formData.winLossStatus} onValueChange={(v) => update("winLossStatus", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WIN">WIN</SelectItem>
-                    <SelectItem value="LOSS">LOSS</SelectItem>
-                    <SelectItem value="BREAK_EVEN">BREAK EVEN</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Quality Score (1-10)</Label>
-                <Input type="number" min="1" max="10" value={formData.tradeQualityScore} onChange={(e) => update("tradeQualityScore", e.target.value)} />
-              </div>
-            </div>
-            <Separator />
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <Label>POI Quality</Label>
-                <Select value={formData.poiQualityRating} onValueChange={(v) => update("poiQualityRating", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PRISTINE">PRISTINE</SelectItem>
-                    <SelectItem value="CLEAN">CLEAN</SelectItem>
-                    <SelectItem value="ACCEPTABLE">ACCEPTABLE</SelectItem>
-                    <SelectItem value="QUESTIONABLE">QUESTIONABLE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Inducement Quality</Label>
-                <Select value={formData.inducementQualityRating} onValueChange={(v) => update("inducementQualityRating", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OBVIOUS">OBVIOUS</SelectItem>
-                    <SelectItem value="CLEAR">CLEAR</SelectItem>
-                    <SelectItem value="SUBTLE">SUBTLE</SelectItem>
-                    <SelectItem value="MISSING">MISSING</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Trinity Alignment</Label>
-                <Select value={formData.trinityAlignmentRating} onValueChange={(v) => update("trinityAlignmentRating", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PERFECT">PERFECT</SelectItem>
-                    <SelectItem value="STRONG">STRONG</SelectItem>
-                    <SelectItem value="ACCEPTABLE">ACCEPTABLE</SelectItem>
-                    <SelectItem value="WEAK">WEAK</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Risk Execution</Label>
-                <Select value={formData.riskExecutionRating} onValueChange={(v) => update("riskExecutionRating", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FLAWLESS">FLAWLESS</SelectItem>
-                    <SelectItem value="GOOD">GOOD</SelectItem>
-                    <SelectItem value="ACCEPTABLE">ACCEPTABLE</SelectItem>
-                    <SelectItem value="POOR">POOR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Discipline</Label>
-              <Select value={formData.disciplineRating} onValueChange={(v) => update("disciplineRating", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PERFECT_WAIT">PERFECT WAIT</SelectItem>
-                  <SelectItem value="MINOR_RUSH">MINOR RUSH</SelectItem>
-                  <SelectItem value="IMPATIENT">IMPATIENT</SelectItem>
-                  <SelectItem value="FORCED">FORCED</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "reflection":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trade Reflection</CardTitle>
-            <CardDescription>Learn from your trade</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Why did you enter this trade?</Label>
-              <RichTextEditor value={formData.whyEntered} onChange={(value) => update("whyEntered", value)} placeholder="Describe the setup..." rows={3} />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="playedAsExpected" checked={formData.playedAsExpected} onCheckedChange={(checked) => update("playedAsExpected", !!checked)} />
-              <Label htmlFor="playedAsExpected">Did the move play out as expected?</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>What went wrong? (if losing)</Label>
-              <RichTextEditor value={formData.whatWentWrong} onChange={(value) => update("whatWentWrong", value)} rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>What went right? (if winning)</Label>
-              <RichTextEditor value={formData.whatWentRight} onChange={(value) => update("whatWentRight", value)} rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>Expansion Description</Label>
-              <RichTextEditor value={formData.expansionDescription} onChange={(value) => update("expansionDescription", value)} placeholder="How did the trade expand beyond expectations?" rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>Surprise Description</Label>
-              <RichTextEditor value={formData.surpriseDescription} onChange={(value) => update("surpriseDescription", value)} placeholder="Any unexpected movements?" rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>Institutional Lessons</Label>
-              <RichTextEditor value={formData.institutionalLessons} onChange={(value) => update("institutionalLessons", value)} placeholder="What did institutions do?" rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>How Affects Next Trade</Label>
-              <RichTextEditor value={formData.howAffectsNext} onChange={(value) => update("howAffectsNext", value)} placeholder="How does this affect your next trade?" rows={2} />
-            </div>
-            <Separator />
-            <div className="space-y-2">
-              <Label>Rule Adherence</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="followedTrinity" checked={formData.followedTrinity} onCheckedChange={(checked) => update("followedTrinity", !!checked)} />
-                  <Label htmlFor="followedTrinity">Followed the Trinity</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="correctKillzone" checked={formData.correctKillzone} onCheckedChange={(checked) => update("correctKillzone", !!checked)} />
-                  <Label htmlFor="correctKillzone">Used correct Killzone</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="waitedForInducement" checked={formData.waitedForInducement} onCheckedChange={(checked) => update("waitedForInducement", !!checked)} />
-                  <Label htmlFor="waitedForInducement">Waited for clear inducement</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="respectedHTFNarrative" checked={formData.respectedHTFNarrative} onCheckedChange={(checked) => update("respectedHTFNarrative", !!checked)} />
-                  <Label htmlFor="respectedHTFNarrative">Respected HTF Narrative</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="managedRiskPerPlan" checked={formData.managedRiskPerPlan} onCheckedChange={(checked) => update("managedRiskPerPlan", !!checked)} />
-                  <Label htmlFor="managedRiskPerPlan">Managed Risk Per Plan</Label>
-                </div>
-              </div>
-            </div>
-            {!formData.followedTrinity && (
-              <div className="space-y-2">
-                <Label>Trinity Violation Explanation</Label>
-                <Textarea value={formData.trinityViolationExplanation} onChange={(e) => update("trinityViolationExplanation", e.target.value)} rows={2} />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Discipline Score (1-10)</Label>
-              <Input type="number" min="1" max="10" value={formData.disciplineScore} onChange={(e) => update("disciplineScore", e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
-      );
-
-    case "screenshots":
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trade Screenshots</CardTitle>
-            <CardDescription>Capture your chart setups and trade context</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScreenshotUpload
-              value={formData.screenshots}
-              onChange={(ids) => update("screenshots", ids)}
-              maxFiles={5}
-            />
-          </CardContent>
-        </Card>
-      );
-
-    default:
-      return null;
-  }
 }
