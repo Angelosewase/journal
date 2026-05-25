@@ -19,15 +19,15 @@ This is a Next.js 16.2.0 project with:
 
 ```bash
 # Development
-npm run dev          # Start dev server at localhost:3000
-npm run build        # Production build
-npm run start        # Start production server
+pnpm dev             # Start dev server at localhost:3000
+pnpm build           # Production build
+pnpm start           # Start production server
 
 # Code Quality
-npm run lint         # Run ESLint (no test runner configured)
+pnpm lint            # Run ESLint (no test runner configured)
 
 # Type Checking (run manually)
-npx tsc --noEmit     # TypeScript type checking
+pnpm exec tsc --noEmit   # TypeScript type checking
 ```
 
 Note: No test framework is currently configured. If adding tests, use Vitest with `@vitest/ui`.
