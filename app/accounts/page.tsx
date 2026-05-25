@@ -7,17 +7,7 @@ import { useMemo, useState } from "react";
 import { AccountForm } from "@/components/AccountForm";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,17 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatMoney, formatPercent } from "@/lib/format";
-import {
-  ArrowDownRight,
-  ChevronRight,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-  Wallet,
-  TrendingUp,
-  BarChart3,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 
 interface AccountWithSummary {
   _id: Id<"accounts">;
@@ -63,56 +43,18 @@ interface AccountWithSummary {
   totalTradePnl: number;
 }
 
-function PortfolioStat({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  valueClass,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  valueClass?: string;
-}) {
-  return (
-    <Card size="sm" className="gap-0 py-4">
-      <CardContent className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            {label}
-          </p>
-          <p className={cn("text-2xl font-bold leading-none text-zinc-900 dark:text-zinc-50", valueClass)}>
-            {value}
-          </p>
-          {sub && <p className="text-xs text-zinc-400 dark:text-zinc-500">{sub}</p>}
-        </div>
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-          <Icon className="size-4 text-zinc-500 dark:text-zinc-400" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function AccountCardSkeleton() {
   return (
-    <Card className="gap-0">
-      <CardHeader>
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-3 w-20" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-1.5 w-full rounded-full" />
-        <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-10 rounded-lg" />
-          <Skeleton className="h-10 rounded-lg" />
-          <Skeleton className="h-10 rounded-lg" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <Skeleton className="mb-4 h-4 w-36" />
+      <Skeleton className="mb-5 h-7 w-44" />
+      <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+      <div className="mt-4 grid grid-cols-3 gap-4">
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8" />
+        <Skeleton className="h-8" />
+      </div>
+    </div>
   );
 }
 
@@ -128,131 +70,85 @@ function AccountCard({
   onOpen: () => void;
 }) {
   const isPositive = account.netProfit >= 0;
-  const returnMagnitude = Math.min(Math.abs(account.percentReturn), 100);
 
   return (
-    <Card
-      className="group cursor-pointer gap-0 transition-all hover:border-zinc-300 hover:shadow-sm dark:hover:border-zinc-700"
+    <div
+      className="group relative cursor-pointer rounded-xl border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
       onClick={onOpen}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-xl",
-              isPositive
-                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"
-                : "bg-red-50 text-red-500 dark:bg-red-950/50 dark:text-red-400",
-            )}
-          >
-            <Wallet className="size-4.5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="truncate text-base">{account.name}</CardTitle>
-            <CardDescription className="mt-1 flex flex-wrap items-center gap-1.5 normal-case tracking-normal">
-              <Badge variant="outline" className="text-[10px] font-semibold">
-                {account.currency}
-              </Badge>
-              {account.leverage && (
-                <Badge variant="secondary" className="text-[10px] font-semibold">
-                  {account.leverage}x
-                </Badge>
-              )}
-            </CardDescription>
-          </div>
+      {/* Header */}
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
+            {account.name}
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+            {account.currency}
+            {account.leverage ? ` · ${account.leverage}x` : ""}
+          </p>
         </div>
-        <CardAction>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="size-3.5" />
-                Edit account
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                <Trash2 className="size-3.5" />
-                Delete account
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardAction>
-      </CardHeader>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="size-3.5" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 className="size-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-      <CardContent className="space-y-4">
+      {/* Balance */}
+      <p className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+        {formatMoney(account.currentBalance ?? 0, account.currency)}
+      </p>
+      <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Current balance</p>
+
+      {/* Divider */}
+      <div className="my-4 h-px bg-zinc-100 dark:bg-zinc-800" />
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            Current Balance
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">Net P&L</p>
+          <p className={cn(
+            "mt-0.5 text-sm font-semibold",
+            isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
+          )}>
+            {formatMoney(account.netProfit, account.currency, { showSign: true })}
           </p>
-          <p className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            {formatMoney(account.currentBalance ?? 0, account.currency)}
+        </div>
+        <div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">Return</p>
+          <p className={cn(
+            "mt-0.5 text-sm font-semibold",
+            isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
+          )}>
+            {formatPercent(account.percentReturn)}
           </p>
         </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400 dark:text-zinc-500">Return</span>
-            <span
-              className={cn(
-                "font-semibold",
-                isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
-              )}
-            >
-              {formatPercent(account.percentReturn)}
-            </span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                isPositive ? "bg-emerald-500" : "bg-red-500",
-              )}
-              style={{ width: `${returnMagnitude}%` }}
-            />
-          </div>
+        <div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">Trades</p>
+          <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            {account.totalTrades}
+          </p>
         </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Net P&L</p>
-            <p
-              className={cn(
-                "mt-0.5 text-sm font-semibold",
-                isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
-              )}
-            >
-              {formatMoney(account.netProfit, account.currency, { showSign: true })}
-            </p>
-          </div>
-          <div className="rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Trades</p>
-            <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              {account.totalTrades}
-            </p>
-          </div>
-          <div className="rounded-xl bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Starting</p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-zinc-600 dark:text-zinc-300">
-              {formatMoney(account.startingBalance, account.currency)}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-
-      <CardFooter className="justify-between text-xs text-zinc-400 dark:text-zinc-500">
-        <span>View account details</span>
-        <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -269,8 +165,8 @@ export default function AccountsPage() {
     const totalBalance = accounts.reduce((sum, a) => sum + (a.currentBalance ?? 0), 0);
     const totalNetProfit = accounts.reduce((sum, a) => sum + a.netProfit, 0);
     const totalTrades = accounts.reduce((sum, a) => sum + a.totalTrades, 0);
-    const profitable = accounts.filter((a) => a.netProfit >= 0).length;
-    return { totalBalance, totalNetProfit, totalTrades, profitable, count: accounts.length };
+    const currency = accounts[0]?.currency ?? "USD";
+    return { totalBalance, totalNetProfit, totalTrades, currency, count: accounts.length };
   }, [accounts]);
 
   const handleDelete = async () => {
@@ -284,69 +180,41 @@ export default function AccountsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8 pb-16">
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 pb-16">
+
+        {/* Page header */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Accounts
-            </h1>
-            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
-              Manage trading accounts and track capital across brokers
-            </p>
+            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Accounts</h1>
+            {portfolio && (
+              <p className="mt-0.5 text-sm text-zinc-400 dark:text-zinc-500">
+                {portfolio.count} account{portfolio.count !== 1 ? "s" : ""}
+                {" · "}
+                <span className={cn(
+                  "font-medium",
+                  portfolio.totalNetProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
+                )}>
+                  {formatMoney(portfolio.totalNetProfit, portfolio.currency, { showSign: true })}
+                </span>
+                {" combined P&L"}
+              </p>
+            )}
           </div>
-          <Button
-            onClick={() => setShowForm(true)}
-            className="rounded-full shadow-sm"
-          >
+          <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus className="size-3.5" />
             Add Account
           </Button>
         </div>
 
+        {/* Cards */}
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
-            ))}
-          </div>
-        ) : portfolio ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <PortfolioStat
-              label="Total Balance"
-              value={formatMoney(portfolio.totalBalance, accounts![0]?.currency ?? "USD")}
-              sub={`Across ${portfolio.count} account${portfolio.count !== 1 ? "s" : ""}`}
-              icon={Wallet}
-            />
-            <PortfolioStat
-              label="Combined P&L"
-              value={formatMoney(portfolio.totalNetProfit, accounts![0]?.currency ?? "USD", {
-                showSign: true,
-              })}
-              sub={`${portfolio.profitable} of ${portfolio.count} profitable`}
-              icon={portfolio.totalNetProfit >= 0 ? TrendingUp : ArrowDownRight}
-              valueClass={
-                portfolio.totalNetProfit >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-red-500"
-              }
-            />
-            <PortfolioStat
-              label="Total Trades"
-              value={portfolio.totalTrades}
-              sub="Across all accounts"
-              icon={BarChart3}
-            />
-          </div>
-        ) : null}
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <AccountCardSkeleton key={i} />
             ))}
           </div>
         ) : accounts && accounts.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {accounts.map((account) => (
               <AccountCard
                 key={account._id}
@@ -361,23 +229,16 @@ export default function AccountsPage() {
             ))}
           </div>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
-                <Wallet className="size-6 text-zinc-400 dark:text-zinc-500" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-zinc-900 dark:text-zinc-50">No accounts yet</p>
-                <p className="max-w-sm text-sm text-zinc-400 dark:text-zinc-500">
-                  Create your first account to start tracking capital, deposits, and trade performance.
-                </p>
-              </div>
-              <Button onClick={() => setShowForm(true)} className="rounded-full">
-                <Plus className="size-3.5" />
-                Create Account
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 py-16 text-center">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">No accounts yet</p>
+            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
+              Create your first account to start tracking capital.
+            </p>
+            <Button size="sm" className="mt-4" onClick={() => setShowForm(true)}>
+              <Plus className="size-3.5" />
+              Add Account
+            </Button>
+          </div>
         )}
 
         {showForm && (

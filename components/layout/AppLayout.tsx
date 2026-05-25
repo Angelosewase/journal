@@ -139,19 +139,18 @@ export default function AppLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [historyLength, setHistoryLength] = useState(() =>
-    typeof window !== "undefined" ? window.history.length : 1,
-  );
+  // Start with 1 on both server and client so SSR and hydration agree,
+  // then sync to the real history length after mount.
+  const [historyLength, setHistoryLength] = useState(1);
 
-  // Track navigation state
   useEffect(() => {
+    setHistoryLength(window.history.length);
+
     const handlePopState = () => {
-      // When user navigates with browser buttons, update state
       setHistoryLength(window.history.length);
     };
 
     window.addEventListener("popstate", handlePopState);
-
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
