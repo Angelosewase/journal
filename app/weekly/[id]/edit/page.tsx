@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import {
+  computeWeeklyReviewStats,
+  getWeekEnd,
+  weeklyStatsToFormValues,
+} from "@/lib/weekly-review";
 
 const reviewSteps = [
   { id: "numbers", label: "Numbers", short: "Numbers" },
@@ -39,187 +45,257 @@ const biasOptions = [
   { value: "NEUTRAL", label: "Neutral" },
 ];
 
+function getDefaultFormData(isR: boolean) {
+  if (isR) {
+    return {
+      totalTrades: "0", winningTrades: "0", losingTrades: "0", totalPnl: "0",
+      biggestWin: "0", biggestLoss: "0", avgWin: "0", avgLoss: "0", profitFactor: "0",
+      inducementPercentage: "100", ltcPercentage: "100", killzonePercentage: "100",
+      avgTrinityScore: "8", tradesAgainstHtf: "0", thoseLostMore: false, narrativeAbilityScore: "8",
+      avgPoiQualityScore: "7", pristineCleanSetups: "0", questionableSetups: "0", lossesOnLowQuality: false,
+      inducementRecognitionScore: "7", prematureEntries: "0", prematureEntryCost: "0",
+      forcedTrades: "0", waitedTrades: "0", forcedTradesLostMore: false, patienceScore: "8",
+      skippedObviousSetups: false, howFeeling: "", emotionsAffectedTrading: false, readinessScore: "8",
+      confidenceNextWeek: "8", topPriorityImprovement: "", specificActionToImprove: "", successMetric: "",
+      poiIdentificationScore: "7", inducementRecognitionScore2: "7", entryExecutionScore: "7", riskManagementScore: "7", overallSetupQualityScore: "7",
+    };
+  }
+  return {
+    overallRiskSentiment: "NEUTRAL", riskSentimentDirection: "SIDEWAYS", dxyWeeklyBias: "NEUTRAL",
+    dxyDirection: "SIDEWAYS", us10yrYield: "", us10yrDirection: "SIDEWAYS", vixLevel: "",
+    vixDirection: "BELOW_20", goldDirection: "FLAT", wtiOil: "", wtiDirection: "UP",
+    usdBias: "NEUTRAL", usdReason: "", eurBias: "NEUTRAL", eurReason: "", gbpBias: "NEUTRAL",
+    gbpReason: "", jpyBias: "NEUTRAL", jpyReason: "", cadBias: "NEUTRAL", cadReason: "",
+    audBias: "NEUTRAL", audReason: "", chfBias: "NEUTRAL", chfReason: "", nzdBias: "NEUTRAL", nzdReason: "",
+  };
+}
+
+type InitOptions = {
+  isReview: boolean;
+  existingReview?: Doc<"weeklyReviews">;
+  existingFundamental?: Doc<"weeklyFundamentalAnalysis">;
+  trades?: Doc<"trades">[];
+  weekStart: string;
+};
+
+/** Pure: builds the initial form state from existing records or this week's trades. */
+function buildInitialFormData(opts: InitOptions): Record<string, any> {
+  const { isReview, existingReview, existingFundamental, trades, weekStart } = opts;
+
+  if (isReview && existingReview) {
+    return {
+      weekStart: existingReview.weekStart,
+      weekEnd: existingReview.weekEnd,
+      totalTrades: String(existingReview.totalTrades),
+      winningTrades: String(existingReview.winningTrades),
+      losingTrades: String(existingReview.losingTrades),
+      totalPnl: String(existingReview.totalPnl),
+      biggestWin: String(existingReview.biggestWin),
+      biggestLoss: String(existingReview.biggestLoss),
+      avgWin: String(existingReview.avgWin),
+      avgLoss: String(existingReview.avgLoss),
+      profitFactor: String(existingReview.profitFactor),
+      inducementPercentage: String(existingReview.inducementPercentage),
+      ltcPercentage: String(existingReview.ltcPercentage),
+      killzonePercentage: String(existingReview.killzonePercentage),
+      avgTrinityScore: String(existingReview.avgTrinityScore),
+      tradesAgainstHtf: String(existingReview.tradesAgainstHtf),
+      thoseLostMore: existingReview.thoseLostMore,
+      narrativeAbilityScore: String(existingReview.narrativeAbilityScore),
+      avgPoiQualityScore: String(existingReview.avgPoiQualityScore),
+      pristineCleanSetups: String(existingReview.pristineCleanSetups),
+      questionableSetups: String(existingReview.questionableSetups),
+      lossesOnLowQuality: existingReview.lossesOnLowQuality,
+      inducementRecognitionScore: String(existingReview.inducementRecognitionScore),
+      prematureEntries: String(existingReview.prematureEntries),
+      prematureEntryCost: String(existingReview.prematureEntryCost),
+      forcedTrades: String(existingReview.forcedTrades),
+      waitedTrades: String(existingReview.waitedTrades),
+      forcedTradesLostMore: existingReview.forcedTradesLostMore,
+      patienceScore: String(existingReview.patienceScore),
+      skippedObviousSetups: existingReview.skippedObviousSetups,
+      howFeeling: existingReview.howFeeling || "",
+      emotionsAffectedTrading: existingReview.emotionsAffectedTrading || false,
+      readinessScore: String(existingReview.readinessScore),
+      bestTradeDescription: existingReview.bestTradeDescription || "",
+      whyBestWorked: existingReview.whyBestWorked || "",
+      patternToLookFor: existingReview.patternToLookFor || "",
+      patternConfidence: existingReview.patternConfidence != null ? String(existingReview.patternConfidence) : "",
+      worstTradeDescription: existingReview.worstTradeDescription || "",
+      whyWorstFailed: existingReview.whyWorstFailed || "",
+      howToAvoidNextWeek: existingReview.howToAvoidNextWeek || "",
+      biggestLessonMarket: existingReview.biggestLessonMarket || "",
+      biggestLessonSelf: existingReview.biggestLessonSelf || "",
+      adjustmentNextWeek: existingReview.adjustmentNextWeek || "",
+      poiIdentificationScore: String(existingReview.poiIdentificationScore),
+      inducementRecognitionScore2: String(existingReview.inducementRecognitionScore2),
+      entryExecutionScore: String(existingReview.entryExecutionScore),
+      riskManagementScore: String(existingReview.riskManagementScore),
+      overallSetupQualityScore: String(existingReview.overallSetupQualityScore),
+      topPriorityImprovement: existingReview.topPriorityImprovement || "",
+      specificActionToImprove: existingReview.specificActionToImprove || "",
+      successMetric: existingReview.successMetric || "",
+      confidenceNextWeek: String(existingReview.confidenceNextWeek),
+    };
+  }
+
+  if (!isReview && existingFundamental) {
+    return {
+      weekStart: existingFundamental.weekStart,
+      weekEnd: existingFundamental.weekEnd,
+      overallRiskSentiment: existingFundamental.overallRiskSentiment,
+      riskSentimentDirection: existingFundamental.riskSentimentDirection,
+      dxyWeeklyBias: existingFundamental.dxyWeeklyBias,
+      dxyDirection: existingFundamental.dxyDirection,
+      us10yrYield: existingFundamental.us10yrYield ? String(existingFundamental.us10yrYield) : "",
+      us10yrDirection: existingFundamental.us10yrDirection,
+      vixLevel: existingFundamental.vixLevel ? String(existingFundamental.vixLevel) : "",
+      vixDirection: existingFundamental.vixDirection,
+      goldDirection: existingFundamental.goldDirection,
+      wtiOil: existingFundamental.wtiOil ? String(existingFundamental.wtiOil) : "",
+      wtiDirection: existingFundamental.wtiDirection,
+      mondayEvents: existingFundamental.mondayEvents || "",
+      tuesdayEvents: existingFundamental.tuesdayEvents || "",
+      wednesdayEvents: existingFundamental.wednesdayEvents || "",
+      thursdayEvents: existingFundamental.thursdayEvents || "",
+      fridayEvents: existingFundamental.fridayEvents || "",
+      highestImpactEvent: existingFundamental.highestImpactEvent || "",
+      expectedMarketReaction: existingFundamental.expectedMarketReaction || "",
+      usdBias: existingFundamental.usdBias,
+      usdReason: existingFundamental.usdReason || "",
+      eurBias: existingFundamental.eurBias,
+      eurReason: existingFundamental.eurReason || "",
+      gbpBias: existingFundamental.gbpBias,
+      gbpReason: existingFundamental.gbpReason || "",
+      jpyBias: existingFundamental.jpyBias,
+      jpyReason: existingFundamental.jpyReason || "",
+      cadBias: existingFundamental.cadBias,
+      cadReason: existingFundamental.cadReason || "",
+      audBias: existingFundamental.audBias,
+      audReason: existingFundamental.audReason || "",
+      chfBias: existingFundamental.chfBias,
+      chfReason: existingFundamental.chfReason || "",
+      nzdBias: existingFundamental.nzdBias,
+      nzdReason: existingFundamental.nzdReason || "",
+      trade1Pair: existingFundamental.trade1Pair || "",
+      trade1Direction: existingFundamental.trade1Direction || "",
+      trade1Reason: existingFundamental.trade1Reason || "",
+      trade1KeyLevel: existingFundamental.trade1KeyLevel || "",
+      trade1Invalidation: existingFundamental.trade1Invalidation || "",
+      trade2Pair: existingFundamental.trade2Pair || "",
+      trade2Direction: existingFundamental.trade2Direction || "",
+      trade2Reason: existingFundamental.trade2Reason || "",
+      trade2KeyLevel: existingFundamental.trade2KeyLevel || "",
+      trade2Invalidation: existingFundamental.trade2Invalidation || "",
+      activeRisks: existingFundamental.activeRisks || "",
+      potentialShockEvents: existingFundamental.potentialShockEvents || "",
+      safeHavenBias: existingFundamental.safeHavenBias || "",
+      confirmationOfBias: existingFundamental.confirmationOfBias || "",
+      surprisingData: existingFundamental.surprisingData || "",
+      missedAnalysis: existingFundamental.missedAnalysis || "",
+      adjustmentsNextWeek: existingFundamental.adjustmentsNextWeek || "",
+    };
+  }
+
+  // Creating new: anchor to the week from the URL and pre-fill review numbers
+  // from any trades logged in that week.
+  const ws = weekStart || new Date().toISOString().split("T")[0];
+  const we = getWeekEnd(ws);
+
+  let autoFill: Record<string, string | boolean> = {};
+  if (isReview && trades !== undefined) {
+    const stats = computeWeeklyReviewStats(trades, ws, we);
+    if (stats.hasTrades) autoFill = weeklyStatsToFormValues(stats);
+  }
+
+  return {
+    weekStart: ws,
+    weekEnd: we,
+    ...getDefaultFormData(isReview),
+    ...autoFill,
+  };
+}
+
+export function didAutoFillFromTrades(opts: InitOptions): boolean {
+  const { isReview, existingReview, trades, weekStart } = opts;
+  if (!isReview || existingReview || trades === undefined) return false;
+  const ws = weekStart || new Date().toISOString().split("T")[0];
+  return computeWeeklyReviewStats(trades, ws, getWeekEnd(ws)).hasTrades;
+}
+
 function EditPageContent() {
-  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const weekStart = params.id as string;
   const mode = searchParams.get("mode") || "fundamental";
   const isReview = mode === "review";
-  
+
   const weeklyReviews = useQuery(api.weeklyReviews.list);
   const weeklyFundamentals = useQuery(api.weeklyFundamentalAnalysis.list);
+  const trades = useQuery(api.trades.list);
+
+  const existingReview = useMemo(() => weeklyReviews?.find(r => r.weekStart === weekStart), [weeklyReviews, weekStart]);
+  const existingFundamental = useMemo(() => weeklyFundamentals?.find(f => f.weekStart === weekStart), [weeklyFundamentals, weekStart]);
+
+  const loading = weeklyReviews === undefined || weeklyFundamentals === undefined || trades === undefined;
+
+  const initialFormData = useMemo(
+    () => (loading ? null : buildInitialFormData({ isReview, existingReview, existingFundamental, trades, weekStart })),
+    [loading, isReview, existingReview, existingFundamental, trades, weekStart],
+  );
+
+  if (loading || !initialFormData) {
+    return <div className="min-h-screen bg-zinc-50 flex items-center justify-center"><p className="text-zinc-400">Loading...</p></div>;
+  }
+
+  const autoFilledFromTrades = didAutoFillFromTrades({ isReview, existingReview, existingFundamental, trades, weekStart });
+  const formKey = `${mode}:${weekStart}:${existingReview?._id ?? "new"}:${existingFundamental?._id ?? "new"}`;
+
+  return (
+    <WeekEditForm
+      key={formKey}
+      initialFormData={initialFormData}
+      isReview={isReview}
+      weekStart={weekStart}
+      existingReviewId={existingReview?._id}
+      existingFundamentalId={existingFundamental?._id}
+      autoFilledFromTrades={autoFilledFromTrades}
+    />
+  );
+}
+
+function WeekEditForm({
+  initialFormData,
+  isReview,
+  weekStart,
+  existingReviewId,
+  existingFundamentalId,
+  autoFilledFromTrades,
+}: {
+  initialFormData: Record<string, any>;
+  isReview: boolean;
+  weekStart: string;
+  existingReviewId?: Id<"weeklyReviews">;
+  existingFundamentalId?: Id<"weeklyFundamentalAnalysis">;
+  autoFilledFromTrades: boolean;
+}) {
+  const router = useRouter();
   const createReview = useMutation(api.weeklyReviews.create);
   const updateReview = useMutation(api.weeklyReviews.update);
   const createFundamental = useMutation(api.weeklyFundamentalAnalysis.create);
   const updateFundamental = useMutation(api.weeklyFundamentalAnalysis.update);
 
-  const existingReview = useMemo(() => weeklyReviews?.find(r => r.weekStart === weekStart), [weeklyReviews, weekStart]);
-  const existingFundamental = useMemo(() => weeklyFundamentals?.find(f => f.weekStart === weekStart), [weeklyFundamentals, weekStart]);
-
   const steps = isReview ? reviewSteps : fundamentalSteps;
   const [activeStep, setActiveStep] = useState(steps[0].id);
-  const [formData, setFormData] = useState<Record<string, any>>({});
-
-  useEffect(() => {
-    if (isReview && existingReview) {
-      setFormData({
-        weekStart: existingReview.weekStart,
-        weekEnd: existingReview.weekEnd,
-        totalTrades: String(existingReview.totalTrades),
-        winningTrades: String(existingReview.winningTrades),
-        losingTrades: String(existingReview.losingTrades),
-        totalPnl: String(existingReview.totalPnl),
-        biggestWin: String(existingReview.biggestWin),
-        biggestLoss: String(existingReview.biggestLoss),
-        avgWin: String(existingReview.avgWin),
-        avgLoss: String(existingReview.avgLoss),
-        profitFactor: String(existingReview.profitFactor),
-        inducementPercentage: String(existingReview.inducementPercentage),
-        ltcPercentage: String(existingReview.ltcPercentage),
-        killzonePercentage: String(existingReview.killzonePercentage),
-        avgTrinityScore: String(existingReview.avgTrinityScore),
-        tradesAgainstHtf: String(existingReview.tradesAgainstHtf),
-        thoseLostMore: existingReview.thoseLostMore,
-        narrativeAbilityScore: String(existingReview.narrativeAbilityScore),
-        avgPoiQualityScore: String(existingReview.avgPoiQualityScore),
-        pristineCleanSetups: String(existingReview.pristineCleanSetups),
-        questionableSetups: String(existingReview.questionableSetups),
-        lossesOnLowQuality: existingReview.lossesOnLowQuality,
-        inducementRecognitionScore: String(existingReview.inducementRecognitionScore),
-        prematureEntries: String(existingReview.prematureEntries),
-        prematureEntryCost: String(existingReview.prematureEntryCost),
-        forcedTrades: String(existingReview.forcedTrades),
-        waitedTrades: String(existingReview.waitedTrades),
-        forcedTradesLostMore: existingReview.forcedTradesLostMore,
-        patienceScore: String(existingReview.patienceScore),
-        skippedObviousSetups: existingReview.skippedObviousSetups,
-        howFeeling: existingReview.howFeeling || "",
-        emotionsAffectedTrading: existingReview.emotionsAffectedTrading || false,
-        readinessScore: String(existingReview.readinessScore),
-        bestTradeDescription: existingReview.bestTradeDescription || "",
-        whyBestWorked: existingReview.whyBestWorked || "",
-        patternToLookFor: existingReview.patternToLookFor || "",
-        patternConfidence: existingReview.patternConfidence != null ? String(existingReview.patternConfidence) : "",
-        worstTradeDescription: existingReview.worstTradeDescription || "",
-        whyWorstFailed: existingReview.whyWorstFailed || "",
-        howToAvoidNextWeek: existingReview.howToAvoidNextWeek || "",
-        biggestLessonMarket: existingReview.biggestLessonMarket || "",
-        biggestLessonSelf: existingReview.biggestLessonSelf || "",
-        adjustmentNextWeek: existingReview.adjustmentNextWeek || "",
-        poiIdentificationScore: String(existingReview.poiIdentificationScore),
-        inducementRecognitionScore2: String(existingReview.inducementRecognitionScore2),
-        entryExecutionScore: String(existingReview.entryExecutionScore),
-        riskManagementScore: String(existingReview.riskManagementScore),
-        overallSetupQualityScore: String(existingReview.overallSetupQualityScore),
-        topPriorityImprovement: existingReview.topPriorityImprovement || "",
-        specificActionToImprove: existingReview.specificActionToImprove || "",
-        successMetric: existingReview.successMetric || "",
-        confidenceNextWeek: String(existingReview.confidenceNextWeek),
-      });
-    } else if (!isReview && existingFundamental) {
-      setFormData({
-        weekStart: existingFundamental.weekStart,
-        weekEnd: existingFundamental.weekEnd,
-        overallRiskSentiment: existingFundamental.overallRiskSentiment,
-        riskSentimentDirection: existingFundamental.riskSentimentDirection,
-        dxyWeeklyBias: existingFundamental.dxyWeeklyBias,
-        dxyDirection: existingFundamental.dxyDirection,
-        us10yrYield: existingFundamental.us10yrYield ? String(existingFundamental.us10yrYield) : "",
-        us10yrDirection: existingFundamental.us10yrDirection,
-        vixLevel: existingFundamental.vixLevel ? String(existingFundamental.vixLevel) : "",
-        vixDirection: existingFundamental.vixDirection,
-        goldDirection: existingFundamental.goldDirection,
-        wtiOil: existingFundamental.wtiOil ? String(existingFundamental.wtiOil) : "",
-        wtiDirection: existingFundamental.wtiDirection,
-        mondayEvents: existingFundamental.mondayEvents || "",
-        tuesdayEvents: existingFundamental.tuesdayEvents || "",
-        wednesdayEvents: existingFundamental.wednesdayEvents || "",
-        thursdayEvents: existingFundamental.thursdayEvents || "",
-        fridayEvents: existingFundamental.fridayEvents || "",
-        highestImpactEvent: existingFundamental.highestImpactEvent || "",
-        expectedMarketReaction: existingFundamental.expectedMarketReaction || "",
-        usdBias: existingFundamental.usdBias,
-        usdReason: existingFundamental.usdReason || "",
-        eurBias: existingFundamental.eurBias,
-        eurReason: existingFundamental.eurReason || "",
-        gbpBias: existingFundamental.gbpBias,
-        gbpReason: existingFundamental.gbpReason || "",
-        jpyBias: existingFundamental.jpyBias,
-        jpyReason: existingFundamental.jpyReason || "",
-        cadBias: existingFundamental.cadBias,
-        cadReason: existingFundamental.cadReason || "",
-        audBias: existingFundamental.audBias,
-        audReason: existingFundamental.audReason || "",
-        chfBias: existingFundamental.chfBias,
-        chfReason: existingFundamental.chfReason || "",
-        nzdBias: existingFundamental.nzdBias,
-        nzdReason: existingFundamental.nzdReason || "",
-        trade1Pair: existingFundamental.trade1Pair || "",
-        trade1Direction: existingFundamental.trade1Direction || "",
-        trade1Reason: existingFundamental.trade1Reason || "",
-        trade1KeyLevel: existingFundamental.trade1KeyLevel || "",
-        trade1Invalidation: existingFundamental.trade1Invalidation || "",
-        trade2Pair: existingFundamental.trade2Pair || "",
-        trade2Direction: existingFundamental.trade2Direction || "",
-        trade2Reason: existingFundamental.trade2Reason || "",
-        trade2KeyLevel: existingFundamental.trade2KeyLevel || "",
-        trade2Invalidation: existingFundamental.trade2Invalidation || "",
-        activeRisks: existingFundamental.activeRisks || "",
-        potentialShockEvents: existingFundamental.potentialShockEvents || "",
-        safeHavenBias: existingFundamental.safeHavenBias || "",
-        confirmationOfBias: existingFundamental.confirmationOfBias || "",
-        surprisingData: existingFundamental.surprisingData || "",
-        missedAnalysis: existingFundamental.missedAnalysis || "",
-        adjustmentsNextWeek: existingFundamental.adjustmentsNextWeek || "",
-      });
-    } else {
-      const today = new Date();
-      const ws = new Date(today);
-      ws.setDate(today.getDate() - today.getDay());
-      const we = new Date(ws);
-      we.setDate(ws.getDate() + 6);
-      
-      setFormData({
-        weekStart: ws.toISOString().split("T")[0],
-        weekEnd: we.toISOString().split("T")[0],
-        ...getDefaultFormData(isReview)
-      });
-    }
-  }, [existingReview, existingFundamental, isReview, weekStart]);
-
-  const getDefaultFormData = (isR: boolean) => {
-    if (isR) {
-      return {
-        totalTrades: "0", winningTrades: "0", losingTrades: "0", totalPnl: "0",
-        biggestWin: "0", biggestLoss: "0", avgWin: "0", avgLoss: "0", profitFactor: "0",
-        inducementPercentage: "100", ltcPercentage: "100", killzonePercentage: "100",
-        avgTrinityScore: "8", tradesAgainstHtf: "0", thoseLostMore: false, narrativeAbilityScore: "8",
-        avgPoiQualityScore: "7", pristineCleanSetups: "0", questionableSetups: "0", lossesOnLowQuality: false,
-        inducementRecognitionScore: "7", prematureEntries: "0", prematureEntryCost: "0",
-        forcedTrades: "0", waitedTrades: "0", forcedTradesLostMore: false, patienceScore: "8",
-        skippedObviousSetups: false, howFeeling: "", emotionsAffectedTrading: false, readinessScore: "8",
-        confidenceNextWeek: "8", topPriorityImprovement: "", specificActionToImprove: "", successMetric: "",
-        poiIdentificationScore: "7", inducementRecognitionScore2: "7", entryExecutionScore: "7", riskManagementScore: "7", overallSetupQualityScore: "7",
-      };
-    }
-    return {
-      overallRiskSentiment: "NEUTRAL", riskSentimentDirection: "SIDEWAYS", dxyWeeklyBias: "NEUTRAL",
-      dxyDirection: "SIDEWAYS", us10yrYield: "", us10yrDirection: "SIDEWAYS", vixLevel: "",
-      vixDirection: "BELOW_20", goldDirection: "FLAT", wtiOil: "", wtiDirection: "UP",
-      usdBias: "NEUTRAL", usdReason: "", eurBias: "NEUTRAL", eurReason: "", gbpBias: "NEUTRAL",
-      gbpReason: "", jpyBias: "NEUTRAL", jpyReason: "", cadBias: "NEUTRAL", cadReason: "",
-      audBias: "NEUTRAL", audReason: "", chfBias: "NEUTRAL", chfReason: "", nzdBias: "NEUTRAL", nzdReason: "",
-    };
-  };
+  const [formData, setFormData] = useState<Record<string, any>>(initialFormData);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isReview) {
-        if (existingReview) {
+        if (existingReviewId) {
           await updateReview({
-            id: existingReview._id,
+            id: existingReviewId,
             updates: {
               weekStart: formData.weekStart, weekEnd: formData.weekEnd,
               totalTrades: Number(formData.totalTrades), winningTrades: Number(formData.winningTrades),
@@ -281,23 +357,30 @@ function EditPageContent() {
             forcedTrades: Number(formData.forcedTrades), waitedTrades: Number(formData.waitedTrades),
             forcedTradesLostMore: formData.forcedTradesLostMore, patienceScore: Number(formData.patienceScore),
             skippedObviousSetups: formData.skippedObviousSetups,
+            bestTradeDescription: formData.bestTradeDescription || undefined,
+            whyBestWorked: formData.whyBestWorked || undefined,
+            worstTradeDescription: formData.worstTradeDescription || undefined,
+            whyWorstFailed: formData.whyWorstFailed || undefined,
+            biggestLessonMarket: formData.biggestLessonMarket || undefined,
+            biggestLessonSelf: formData.biggestLessonSelf || undefined,
+            adjustmentNextWeek: formData.adjustmentNextWeek || undefined,
             poiIdentificationScore: Number(formData.poiIdentificationScore),
             inducementRecognitionScore2: Number(formData.inducementRecognitionScore2),
             entryExecutionScore: Number(formData.entryExecutionScore),
             riskManagementScore: Number(formData.riskManagementScore),
             overallSetupQualityScore: Number(formData.overallSetupQualityScore),
-            topPriorityImprovement: formData.topPriorityImprovement || "Test",
-            specificActionToImprove: formData.specificActionToImprove || "Test",
-            successMetric: formData.successMetric || "Test",
+            topPriorityImprovement: formData.topPriorityImprovement || "",
+            specificActionToImprove: formData.specificActionToImprove || "",
+            successMetric: formData.successMetric || "",
             confidenceNextWeek: Number(formData.confidenceNextWeek),
             readinessScore: Number(formData.readinessScore),
           });
           toast.success("Weekly review created!");
         }
       } else {
-        if (existingFundamental) {
+        if (existingFundamentalId) {
           await updateFundamental({
-            id: existingFundamental._id,
+            id: existingFundamentalId,
             updates: {
               overallRiskSentiment: formData.overallRiskSentiment,
               riskSentimentDirection: formData.riskSentimentDirection,
@@ -433,6 +516,19 @@ function EditPageContent() {
         </nav>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {isReview && activeStep === "numbers" && autoFilledFromTrades && (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Pre-filled from your trades</p>
+                <p className="text-xs text-zinc-500">
+                  Numbers, compliance and quality stats were calculated from the trades logged this
+                  week. Review and adjust anything before saving.
+                </p>
+              </div>
+            </div>
+          )}
+
           {isReview && activeStep === "numbers" && (
             <Card>
               <CardHeader><CardTitle>Weekly Numbers</CardTitle></CardHeader>

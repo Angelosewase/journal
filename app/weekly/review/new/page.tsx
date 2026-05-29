@@ -1,16 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, CheckCircle2, Hash, ShieldCheck, BookOpen, Rocket } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  Hash,
+  ShieldCheck,
+  BookOpen,
+  Rocket,
+  Sparkles,
+  RefreshCw,
+  Info,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  computeWeeklyReviewStats,
+  getCurrentWeekStart,
+  getWeekEnd,
+  weeklyStatsToFormValues,
+  type WeeklyReviewStats,
+} from "@/lib/weekly-review";
 
 // ─── Steps ────────────────────────────────────────────────────────────────────
 
@@ -23,11 +45,23 @@ const STEPS = [
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-      {children}
-    </p>
+    <div className="mb-3 flex items-center justify-between">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {children}
+      </p>
+      {hint}
+    </div>
+  );
+}
+
+function AutoBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+      <Sparkles className="h-2.5 w-2.5" />
+      Auto
+    </span>
   );
 }
 
@@ -101,38 +135,136 @@ function CounterInput({ label, value, onChange }: {
   );
 }
 
-function StatBlock({ label, value }: { label: string; value: string | number }) {
+function StatBlock({ label, value, tone }: { label: string; value: string | number; tone?: "pos" | "neg" }) {
   return (
     <div className="rounded-xl border bg-muted/20 p-3 space-y-0.5">
       <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</p>
-      <p className="text-lg font-semibold tabular-nums">{value}</p>
+      <p className={cn(
+        "text-lg font-semibold tabular-nums",
+        tone === "pos" && "text-emerald-600 dark:text-emerald-400",
+        tone === "neg" && "text-red-500",
+      )}>{value}</p>
+    </div>
+  );
+}
+
+function fmtMoney(n: number): string {
+  const sign = n >= 0 ? "+" : "−";
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+
+// ─── Trades preview ─────────────────────────────────────────────────────────
+
+function TradesPreview({ stats }: { stats: WeeklyReviewStats }) {
+  if (!stats.hasTrades) {
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-dashed bg-muted/20 p-4">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">No trades logged for this week yet</p>
+          <p className="text-xs text-muted-foreground">
+            Stats will auto-fill from any trades dated {stats.weekStart} – {stats.weekEnd}. You can
+            still enter the numbers manually below.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {stats.totalTrades} trade{stats.totalTrades !== 1 ? "s" : ""} this week
+        </p>
+        <p className="text-[11px] text-muted-foreground">Pulled from your journal</p>
+      </div>
+      <div className="max-h-56 divide-y overflow-y-auto">
+        {stats.rows.map((r) => (
+          <div key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+            <span
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold",
+                r.status === "WIN"
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : r.status === "LOSS"
+                    ? "bg-red-500/10 text-red-500"
+                    : "bg-zinc-500/10 text-zinc-500",
+              )}
+            >
+              {r.status === "WIN" ? "W" : r.status === "LOSS" ? "L" : "BE"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">
+                {r.instrument}
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  {r.direction === "LONG" ? "Long" : "Short"} · {r.sessionLabel}
+                </span>
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {new Date(r.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                {r.quality != null && ` · Q${r.quality}`}
+                {r.finalRR != null && ` · ${r.finalRR.toFixed(1)}R`}
+              </p>
+            </div>
+            <span
+              className={cn(
+                "shrink-0 text-sm font-semibold tabular-nums",
+                r.pnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500",
+              )}
+            >
+              {fmtMoney(r.pnl)}
+            </span>
+          </div>
+        ))}
+      </div>
+      {stats.sessionBreakdown.length > 1 && (
+        <div className="flex flex-wrap gap-2 border-t bg-muted/10 px-3 py-2">
+          {stats.sessionBreakdown.map((s) => (
+            <span key={s.session} className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-[11px]">
+              <span className="font-medium">{s.label}</span>
+              <span className="text-muted-foreground">{s.trades}t · {s.winRate}%</span>
+              <span className={cn("font-semibold tabular-nums", s.pnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500")}>
+                {fmtMoney(s.pnl)}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Step: Numbers ────────────────────────────────────────────────────────────
 
-function StepNumbers({ form, update, autoStats, profitFactor }: {
-  form: any; update: (k: string, v: any) => void; autoStats: any; profitFactor: number;
+function StepNumbers({ form, update, stats, onResync }: {
+  form: any; update: (k: string, v: any) => void; stats: WeeklyReviewStats; onResync: () => void;
 }) {
-  const winRate = autoStats.totalTrades > 0
-    ? Math.round((autoStats.winningTrades / autoStats.totalTrades) * 100)
-    : 0;
+  const totalPnl = Number(form.totalPnl) || 0;
 
   return (
     <div className="space-y-8">
-      {/* Auto-calculated summary */}
       <div className="space-y-3">
-        <SectionLabel>Auto-calculated from trades</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <StatBlock label="Trades" value={autoStats.totalTrades} />
-          <StatBlock label="Win Rate" value={`${winRate}%`} />
-          <StatBlock label="P&L" value={`$${autoStats.totalPnl.toFixed(2)}`} />
-          <StatBlock label="Profit Factor" value={profitFactor.toFixed(2)} />
+        <SectionLabel
+          hint={stats.hasTrades ? (
+            <button type="button" onClick={onResync} className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+              <RefreshCw className="h-3 w-3" />
+              Re-sync from trades
+            </button>
+          ) : undefined}
+        >
+          Auto-calculated from trades
+        </SectionLabel>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatBlock label="Trades" value={Number(form.totalTrades) || 0} />
+          <StatBlock label="Win Rate" value={`${stats.winRate}%`} />
+          <StatBlock label="Net P&L" value={fmtMoney(totalPnl)} tone={totalPnl >= 0 ? "pos" : "neg"} />
+          <StatBlock label="Profit Factor" value={(Number(form.profitFactor) || 0).toFixed(2)} />
         </div>
       </div>
 
-      {/* Override / confirm */}
+      <TradesPreview stats={stats} />
+
       <div className="space-y-3">
         <SectionLabel>Confirm or override</SectionLabel>
         <div className="flex gap-4 rounded-xl border bg-muted/20 p-4">
@@ -145,7 +277,7 @@ function StepNumbers({ form, update, autoStats, profitFactor }: {
       </div>
 
       <div className="space-y-3">
-        <SectionLabel>P&L breakdown</SectionLabel>
+        <SectionLabel hint={<AutoBadge />}>P&L breakdown</SectionLabel>
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: "Total P&L ($)",  field: "totalPnl"    },
@@ -172,7 +304,7 @@ function StepCompliance({ form, update }: { form: any; update: (k: string, v: an
   return (
     <div className="space-y-8">
       <div className="space-y-5">
-        <SectionLabel>Trinity Compliance</SectionLabel>
+        <SectionLabel hint={<AutoBadge />}>Trinity Compliance</SectionLabel>
         <PercentSlider label="Clear Inducement"    value={form.inducementPercentage} onChange={(v) => update("inducementPercentage", v)} />
         <PercentSlider label="LTC Confirmation"    value={form.ltcPercentage}        onChange={(v) => update("ltcPercentage", v)} />
         <PercentSlider label="In Killzone"         value={form.killzonePercentage}   onChange={(v) => update("killzonePercentage", v)} />
@@ -180,7 +312,7 @@ function StepCompliance({ form, update }: { form: any; update: (k: string, v: an
       </div>
 
       <div className="space-y-5">
-        <SectionLabel>POI Quality</SectionLabel>
+        <SectionLabel hint={<AutoBadge />}>POI Quality</SectionLabel>
         <SliderRow label="Avg POI Score"           value={form.avgPoiQualityScore}   onChange={(v) => update("avgPoiQualityScore", v)} />
         <div className="flex gap-4 rounded-xl border bg-muted/20 p-4">
           <CounterInput label="Pristine / Clean"   value={form.pristineCleanSetups}  onChange={(v) => update("pristineCleanSetups", v)} />
@@ -194,7 +326,7 @@ function StepCompliance({ form, update }: { form: any; update: (k: string, v: an
       </div>
 
       <div className="space-y-5">
-        <SectionLabel>Patience & Execution</SectionLabel>
+        <SectionLabel hint={<AutoBadge />}>Patience & Execution</SectionLabel>
         <SliderRow label="Patience Score"          value={form.patienceScore}        onChange={(v) => update("patienceScore", v)} />
         <SliderRow label="Inducement Recognition"  value={form.inducementRecognitionScore} onChange={(v) => update("inducementRecognitionScore", v)} />
         <div className="flex gap-4 rounded-xl border bg-muted/20 p-4">
@@ -223,18 +355,18 @@ function StepCompliance({ form, update }: { form: any; update: (k: string, v: an
 
 // ─── Step: Analysis ───────────────────────────────────────────────────────────
 
-function StepAnalysis({ form, update }: { form: any; update: (k: string, v: any) => void }) {
+function StepAnalysis({ form, update, stats }: { form: any; update: (k: string, v: any) => void; stats: WeeklyReviewStats }) {
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <SectionLabel>Best Trade</SectionLabel>
-        <FlatTextarea value={form.bestTradeDescription} onChange={(v) => update("bestTradeDescription", v)} placeholder="Describe the setup, entry, and how it played out…" rows={3} />
+        <SectionLabel hint={stats.bestTradeDescription ? <AutoBadge /> : undefined}>Best Trade</SectionLabel>
+        <FlatTextarea value={form.bestTradeDescription} onChange={(v) => update("bestTradeDescription", v)} placeholder="Describe the setup, entry, and how it played out…" rows={2} />
         <FlatTextarea value={form.whyBestWorked} onChange={(v) => update("whyBestWorked", v)} placeholder="Why did it work? What did you do right?" rows={2} />
       </div>
 
       <div className="space-y-3">
-        <SectionLabel>Worst Trade</SectionLabel>
-        <FlatTextarea value={form.worstTradeDescription} onChange={(v) => update("worstTradeDescription", v)} placeholder="Describe the setup, entry, and what happened…" rows={3} />
+        <SectionLabel hint={stats.worstTradeDescription ? <AutoBadge /> : undefined}>Worst Trade</SectionLabel>
+        <FlatTextarea value={form.worstTradeDescription} onChange={(v) => update("worstTradeDescription", v)} placeholder="Describe the setup, entry, and what happened…" rows={2} />
         <FlatTextarea value={form.whyWorstFailed} onChange={(v) => update("whyWorstFailed", v)} placeholder="Why did it fail? What rule was broken?" rows={2} />
       </div>
 
@@ -246,7 +378,7 @@ function StepAnalysis({ form, update }: { form: any; update: (k: string, v: any)
       </div>
 
       <div className="space-y-4">
-        <SectionLabel>Skill Scores</SectionLabel>
+        <SectionLabel hint={<AutoBadge />}>Skill Scores</SectionLabel>
         <SliderRow label="POI Identification"    value={form.poiIdentificationScore}    onChange={(v) => update("poiIdentificationScore", v)} />
         <SliderRow label="Inducement Recognition" value={form.inducementRecognitionScore2} onChange={(v) => update("inducementRecognitionScore2", v)} />
         <SliderRow label="Entry Execution"       value={form.entryExecutionScore}       onChange={(v) => update("entryExecutionScore", v)} />
@@ -297,67 +429,76 @@ function StepAction({ form, update }: { form: any; update: (k: string, v: any) =
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Defaults ─────────────────────────────────────────────────────────────────
 
-export default function NewWeeklyReviewPage() {
-  const router = useRouter();
-  const createReview = useMutation(api.weeklyReviews.create);
-  const trades = useQuery(api.trades.list);
-
-  const today = new Date();
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weekStartStr = weekStart.toISOString().split("T")[0];
-  const weekEndStr = weekEnd.toISOString().split("T")[0];
-
-  const weekTrades = trades?.filter((t) => {
-    const d = new Date(t.createdAt).toISOString().split("T")[0];
-    return d >= weekStartStr && d <= weekEndStr;
-  }) || [];
-
-  const wins = weekTrades.filter((t) => t.winLossStatus === "WIN");
-  const losses = weekTrades.filter((t) => t.winLossStatus === "LOSS");
-  const autoStats = {
-    totalTrades: weekTrades.length,
-    winningTrades: wins.length,
-    losingTrades: losses.length,
-    totalPnl: weekTrades.reduce((s, t) => s + (t.pnl || 0), 0),
-    biggestWin: wins.length ? Math.max(...wins.map((t) => t.pnl || 0)) : 0,
-    biggestLoss: losses.length ? Math.min(...losses.map((t) => t.pnl || 0)) : 0,
-    avgWin: wins.length ? wins.reduce((s, t) => s + (t.pnl || 0), 0) / wins.length : 0,
-    avgLoss: losses.length ? Math.abs(losses.reduce((s, t) => s + (t.pnl || 0), 0) / losses.length) : 0,
-  };
-  const profitFactor = autoStats.avgLoss > 0 ? autoStats.avgWin / autoStats.avgLoss : 0;
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [form, setForm] = useState({
+function buildDefaults(weekStartStr: string, weekEndStr: string) {
+  return {
     weekStart: weekStartStr, weekEnd: weekEndStr,
-    totalTrades: String(autoStats.totalTrades),
-    winningTrades: String(autoStats.winningTrades),
-    losingTrades: String(autoStats.losingTrades),
-    totalPnl: autoStats.totalPnl.toFixed(2),
-    biggestWin: autoStats.biggestWin.toFixed(2),
-    biggestLoss: autoStats.biggestLoss.toFixed(2),
-    avgWin: autoStats.avgWin.toFixed(2),
-    avgLoss: autoStats.avgLoss.toFixed(2),
-    profitFactor: profitFactor.toFixed(2),
-    inducementPercentage: "100", ltcPercentage: "100", killzonePercentage: "100",
-    avgTrinityScore: "8", tradesAgainstHtf: "0", thoseLostMore: false,
-    narrativeAbilityScore: "8", avgPoiQualityScore: "7",
+    totalTrades: "0", winningTrades: "0", losingTrades: "0",
+    totalPnl: "0.00", biggestWin: "0.00", biggestLoss: "0.00",
+    avgWin: "0.00", avgLoss: "0.00", profitFactor: "0.00",
+    inducementPercentage: "0", ltcPercentage: "0", killzonePercentage: "0",
+    avgTrinityScore: "5", tradesAgainstHtf: "0", thoseLostMore: false,
+    narrativeAbilityScore: "7", avgPoiQualityScore: "5",
     pristineCleanSetups: "0", questionableSetups: "0", lossesOnLowQuality: false,
-    inducementRecognitionScore: "7", prematureEntries: "0", prematureEntryCost: "0",
-    forcedTrades: "0", waitedTrades: String(autoStats.totalTrades),
-    forcedTradesLostMore: false, patienceScore: "8", skippedObviousSetups: false,
+    inducementRecognitionScore: "5", prematureEntries: "0", prematureEntryCost: "0",
+    forcedTrades: "0", waitedTrades: "0",
+    forcedTradesLostMore: false, patienceScore: "7", skippedObviousSetups: false,
     bestTradeDescription: "", whyBestWorked: "",
     worstTradeDescription: "", whyWorstFailed: "",
     biggestLessonMarket: "", biggestLessonSelf: "", adjustmentNextWeek: "",
-    poiIdentificationScore: "7", inducementRecognitionScore2: "7",
-    entryExecutionScore: "7", riskManagementScore: "7", overallSetupQualityScore: "7",
+    poiIdentificationScore: "5", inducementRecognitionScore2: "5",
+    entryExecutionScore: "5", riskManagementScore: "5", overallSetupQualityScore: "5",
     topPriorityImprovement: "", specificActionToImprove: "", successMetric: "",
-    confidenceNextWeek: "8", howFeeling: "", emotionsAffectedTrading: false, readinessScore: "8",
-  });
+    confidenceNextWeek: "7", howFeeling: "", emotionsAffectedTrading: false, readinessScore: "7",
+  };
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+export default function NewWeeklyReviewPage() {
+  const trades = useQuery(api.trades.list);
+
+  const weekStartStr = useMemo(() => getCurrentWeekStart(), []);
+  const weekEndStr = useMemo(() => getWeekEnd(weekStartStr), [weekStartStr]);
+
+  const stats = useMemo(
+    () => computeWeeklyReviewStats(trades, weekStartStr, weekEndStr),
+    [trades, weekStartStr, weekEndStr],
+  );
+
+  if (trades === undefined) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading this week&apos;s trades…</p>
+      </div>
+    );
+  }
+
+  return (
+    <ReviewForm stats={stats} weekStartStr={weekStartStr} weekEndStr={weekEndStr} />
+  );
+}
+
+function ReviewForm({ stats, weekStartStr, weekEndStr }: {
+  stats: WeeklyReviewStats; weekStartStr: string; weekEndStr: string;
+}) {
+  const router = useRouter();
+  const createReview = useMutation(api.weeklyReviews.create);
+
+  const weekStart = useMemo(() => new Date(weekStartStr), [weekStartStr]);
+  const weekEnd = useMemo(() => new Date(weekEndStr), [weekEndStr]);
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [form, setForm] = useState(() => ({
+    ...buildDefaults(weekStartStr, weekEndStr),
+    ...(stats.hasTrades ? (weeklyStatsToFormValues(stats) as Partial<ReturnType<typeof buildDefaults>>) : {}),
+  }));
+
+  const handleResync = () => {
+    setForm((prev) => ({ ...prev, ...(weeklyStatsToFormValues(stats) as Partial<typeof prev>) }));
+    toast.success("Re-synced numbers from this week's trades");
+  };
 
   const update = (key: string, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -419,11 +560,13 @@ export default function NewWeeklyReviewPage() {
   const isLastStep = currentStep === STEPS.length - 1;
 
   const stepComponents = [
-    <StepNumbers    key="numbers"    form={form} update={update} autoStats={autoStats} profitFactor={profitFactor} />,
+    <StepNumbers    key="numbers"    form={form} update={update} stats={stats} onResync={handleResync} />,
     <StepCompliance key="compliance" form={form} update={update} />,
-    <StepAnalysis   key="analysis"   form={form} update={update} />,
+    <StepAnalysis   key="analysis"   form={form} update={update} stats={stats} />,
     <StepAction     key="action"     form={form} update={update} />,
   ];
+
+  const netPnl = Number(form.totalPnl) || 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -432,11 +575,23 @@ export default function NewWeeklyReviewPage() {
         <Button variant="ghost" size="icon-sm" asChild>
           <Link href="/weekly"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-semibold tracking-tight">Weekly Review</h1>
           <p className="text-xs text-muted-foreground">
             {weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </p>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border bg-muted/30 px-3 py-1.5 text-xs">
+          {netPnl >= 0 ? (
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+          )}
+          <span className="font-medium tabular-nums">{stats.totalTrades} trades</span>
+          <span className="text-muted-foreground">·</span>
+          <span className={cn("font-semibold tabular-nums", netPnl >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500")}>
+            {fmtMoney(netPnl)}
+          </span>
         </div>
       </div>
 

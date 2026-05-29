@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { computeWeeklyPnlSeries, type WeeklyPnlPoint } from "@/lib/weekly-review";
 
 type WeeklyReview = Doc<"weeklyReviews">;
 type WeeklyFundamental = Doc<"weeklyFundamentalAnalysis">;
@@ -168,56 +169,117 @@ function StatTile({
   );
 }
 
-function PnlTrendChart({ weeks }: { weeks: MergedWeek[] }) {
-  const data = weeks
-    .filter((w) => w.review)
-    .slice(0, 12)
-    .reverse()
-    .map((w) => ({
-      weekStart: w.weekStart,
-      pnl: w.review!.totalPnl,
-    }));
+function PnlTrendChart({ points }: { points: WeeklyPnlPoint[] }) {
+  const data = points.slice(-12);
+
+  const maxAbs = Math.max(...data.map((d) => Math.abs(d.pnl)), 1);
+  const periodPnl = data.reduce((sum, d) => sum + d.pnl, 0);
+  const greenWeeks = data.filter((d) => d.pnl >= 0).length;
+  const reviewedWeeks = data.filter((d) => d.hasReview).length;
 
   return (
     <div className="rounded-2xl border border-zinc-100 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-5 flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Weekly P&L trend</p>
           <p className="text-xs text-zinc-400">
             {data.length > 0
-              ? `Last ${data.length} weeks with reviews`
-              : "No reviewed weeks in current filter"}
+              ? `Live from trades · last ${data.length} active week${data.length !== 1 ? "s" : ""}`
+              : "No trades logged in current filter"}
           </p>
         </div>
-        <Activity className="h-4 w-4 text-zinc-400" />
-      </div>
-      {data.length > 0 ? (
-        <div className="flex h-24 items-end gap-1.5">
-          {data.map((d) => {
-            const height = Math.max((Math.abs(d.pnl) / Math.max(...data.map((x) => Math.abs(x.pnl)), 1)) * 100, 8);
-            const positive = d.pnl >= 0;
-            return (
-              <div key={d.weekStart} className="group flex flex-1 flex-col items-center gap-1">
-                <div className="relative flex h-20 w-full items-end justify-center">
-                  <div
-                    className={cn(
-                      "w-full max-w-8 rounded-t-md transition-all group-hover:opacity-80",
-                      positive ? "bg-emerald-500" : "bg-red-400",
-                    )}
-                    style={{ height: `${height}%` }}
-                    title={`${formatWeekRange(d.weekStart, d.weekStart)}: ${formatPnl(d.pnl)}`}
-                  />
-                </div>
-                <span className="text-[9px] text-zinc-400">
-                  {new Date(d.weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
-              </div>
-            );
-          })}
+        <div className="flex items-center gap-4 text-right">
+          {data.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-zinc-400">Period P&L</p>
+              <p
+                className={cn(
+                  "text-sm font-bold tabular-nums",
+                  periodPnl >= 0 ? "text-emerald-600" : "text-red-500",
+                )}
+              >
+                {formatPnl(periodPnl, true)}
+              </p>
+            </div>
+          )}
+          <Activity className="mt-0.5 h-4 w-4 text-zinc-400" />
         </div>
+      </div>
+
+      {data.length > 0 ? (
+        <>
+          <div className="flex items-stretch gap-1.5">
+            {data.map((d) => {
+              const positive = d.pnl >= 0;
+              const barPct = Math.max((Math.abs(d.pnl) / maxAbs) * 100, d.pnl !== 0 ? 6 : 0);
+              return (
+                <div key={d.weekStart} className="group relative flex flex-1 flex-col items-center">
+                  {/* Positive half */}
+                  <div className="flex h-16 w-full items-end justify-center">
+                    {positive && (
+                      <div
+                        className="w-full max-w-7 rounded-t-md bg-emerald-500 transition-all group-hover:opacity-80"
+                        style={{ height: `${barPct}%` }}
+                      />
+                    )}
+                  </div>
+                  {/* Zero baseline */}
+                  <div className="h-px w-full bg-zinc-200 dark:bg-zinc-700" />
+                  {/* Negative half */}
+                  <div className="flex h-16 w-full items-start justify-center">
+                    {!positive && (
+                      <div
+                        className="w-full max-w-7 rounded-b-md bg-red-400 transition-all group-hover:opacity-80"
+                        style={{ height: `${barPct}%` }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-1.5 flex flex-col items-center gap-1">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        d.hasReview ? "bg-primary" : "bg-zinc-200 dark:bg-zinc-700",
+                      )}
+                      title={d.hasReview ? "Reviewed" : "No review yet"}
+                    />
+                    <span className="text-[9px] text-zinc-400">
+                      {new Date(d.weekStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+
+                  {/* Tooltip */}
+                  <div className="pointer-events-none absolute z-10 -translate-y-2 whitespace-nowrap rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-zinc-700 dark:bg-zinc-800">
+                    <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                      {formatWeekRange(d.weekStart, d.weekEnd)}
+                    </p>
+                    <p className={cn("font-semibold", d.pnl >= 0 ? "text-emerald-600" : "text-red-500")}>
+                      {formatPnl(d.pnl)}
+                    </p>
+                    <p className="text-zinc-400">
+                      {d.trades} trade{d.trades !== 1 ? "s" : ""} · {d.winRate}% win
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-400">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-emerald-500" /> Green {greenWeeks}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-sm bg-red-400" /> Red {data.length - greenWeeks}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> {reviewedWeeks} reviewed
+            </span>
+          </div>
+        </>
       ) : (
         <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50">
-          <p className="text-xs text-zinc-400">Adjust filters to see weekly P&L history</p>
+          <p className="text-xs text-zinc-400">Log trades to see your weekly P&L history</p>
         </div>
       )}
     </div>
@@ -471,6 +533,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 export default function WeeklyPage() {
   const weeklyReviews = useQuery(api.weeklyReviews.list);
   const weeklyFundamentals = useQuery(api.weeklyFundamentalAnalysis.list);
+  const trades = useQuery(api.trades.list);
   const [selectedYear, setSelectedYear] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showNewWeekDialog, setShowNewWeekDialog] = useState(false);
@@ -527,6 +590,17 @@ export default function WeeklyPage() {
     () => mergedWeeks.find((w) => w.weekStart === currentWeekStart),
     [mergedWeeks, currentWeekStart],
   );
+
+  const pnlSeries = useMemo(() => {
+    const reviewedWeekStarts = new Set((weeklyReviews ?? []).map((r) => r.weekStart));
+    const scopedTrades =
+      selectedYear === "all"
+        ? trades
+        : trades?.filter(
+            (t) => new Date(t.createdAt).getFullYear().toString() === selectedYear,
+          );
+    return computeWeeklyPnlSeries(scopedTrades, reviewedWeekStarts);
+  }, [trades, weeklyReviews, selectedYear]);
 
   const summary = useMemo(() => {
     const totalTrades = filteredWeeks.reduce((sum, w) => sum + (w.review?.totalTrades ?? 0), 0);
@@ -676,8 +750,8 @@ export default function WeeklyPage() {
               </div>
             )}
 
-            {/* P&L trend — fixed height placeholder when empty */}
-            {mergedWeeks.length > 0 && <PnlTrendChart weeks={filteredWeeks} />}
+            {/* P&L trend — live from trades */}
+            {(mergedWeeks.length > 0 || pnlSeries.length > 0) && <PnlTrendChart points={pnlSeries} />}
 
             {/* Filters */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
