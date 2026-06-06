@@ -7,11 +7,9 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
-  StickyNote,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
-
-import { TrendingUp } from "lucide-react";
 import { NavMain } from "@/components/ui/nav-main";
 import { NavUser } from "@/components/ui/nav-user";
 import {
@@ -45,12 +43,7 @@ const data = {
       icon: ClipboardList,
     },
     {
-      title: "Notes",
-      url: "/daily-notes",
-      icon: StickyNote,
-    },
-    {
-      title: "Weekly",
+      title: "Planning",
       url: "/weekly",
       icon: BarChart3,
     },

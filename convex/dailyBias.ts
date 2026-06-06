@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const screenshotValidator = v.object({
+  storageId: v.id("_storage"),
+  caption: v.optional(v.string()),
+});
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -30,6 +35,17 @@ export const create = mutation({
     previousDayHigh: v.optional(v.number()),
     previousDayLow: v.optional(v.number()),
     htfPoiTargeted: v.optional(v.string()),
+    morningContextNotes: v.optional(v.string()),
+    morningScreenshots: v.optional(v.array(screenshotValidator)),
+    eveningContextNotes: v.optional(v.string()),
+    eveningScreenshots: v.optional(v.array(screenshotValidator)),
+    sessionScreenshots: v.optional(
+      v.object({
+        ASIA: v.optional(v.array(v.id("_storage"))),
+        LONDON: v.optional(v.array(v.id("_storage"))),
+        NY: v.optional(v.array(v.id("_storage"))),
+      }),
+    ),
     asiaExpectedBehavior: v.optional(v.string()),
     asiaLiquidityToWatch: v.optional(v.string()),
     asiaSetupTypes: v.optional(v.string()),
@@ -75,6 +91,17 @@ export const update = mutation({
     previousDayHigh: v.optional(v.number()),
     previousDayLow: v.optional(v.number()),
     htfPoiTargeted: v.optional(v.string()),
+    morningContextNotes: v.optional(v.string()),
+    morningScreenshots: v.optional(v.array(screenshotValidator)),
+    eveningContextNotes: v.optional(v.string()),
+    eveningScreenshots: v.optional(v.array(screenshotValidator)),
+    sessionScreenshots: v.optional(
+      v.object({
+        ASIA: v.optional(v.array(v.id("_storage"))),
+        LONDON: v.optional(v.array(v.id("_storage"))),
+        NY: v.optional(v.array(v.id("_storage"))),
+      }),
+    ),
     asiaExpectedBehavior: v.optional(v.string()),
     asiaLiquidityToWatch: v.optional(v.string()),
     asiaSetupTypes: v.optional(v.string()),

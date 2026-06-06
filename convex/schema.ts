@@ -1,6 +1,23 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const tradeCaptureValidator = v.object({
+  storageId: v.id("_storage"),
+  label: v.union(
+    v.literal("HTF"),
+    v.literal("ENTRY"),
+    v.literal("EXIT"),
+    v.literal("OTHER"),
+  ),
+  caption: v.optional(v.string()),
+  capturedAt: v.optional(v.number()),
+});
+
+const screenshotWithCaptionValidator = v.object({
+  storageId: v.id("_storage"),
+  caption: v.optional(v.string()),
+});
+
 export default defineSchema({
   accounts: defineTable({
     name: v.string(),
@@ -18,15 +35,15 @@ export default defineSchema({
     date: v.number(),
     note: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_accountId", ["accountId"])
+  })
+    .index("by_accountId", ["accountId"])
     .index("by_date", ["date"]),
 
   trades: defineTable({
     accountId: v.optional(v.id("accounts")),
     createdAt: v.number(),
     updatedAt: v.number(),
-    
-    // Basic Trade Info
+
     instrument: v.string(),
     direction: v.union(v.literal("LONG"), v.literal("SHORT")),
     entryPrice: v.number(),
@@ -34,19 +51,30 @@ export default defineSchema({
     currentPrice: v.optional(v.number()),
     positionSize: v.number(),
     commission: v.number(),
-    environment: v.union(v.literal("BACKTESTING"), v.literal("DEMO"), v.literal("LIVE")),
-    
-    // WWA Framework - Direction & Analysis
-    dailyBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
+    environment: v.union(
+      v.literal("BACKTESTING"),
+      v.literal("DEMO"),
+      v.literal("LIVE"),
+    ),
+
+    dailyBias: v.union(
+      v.literal("BULLISH"),
+      v.literal("BEARISH"),
+      v.literal("NEUTRAL"),
+    ),
     externalStructure: v.string(),
     majorLiquidityPools: v.string(),
     internalStructure: v.string(),
     currentRange: v.string(),
     minorPushStatus: v.string(),
-    session: v.union(v.literal("ASIA"), v.literal("LONDON"), v.literal("NEW_YORK"), v.literal("OTHER")),
+    session: v.union(
+      v.literal("ASIA"),
+      v.literal("LONDON"),
+      v.literal("NEW_YORK"),
+      v.literal("OTHER"),
+    ),
     isInKillzone: v.boolean(),
-    
-    // WWA Framework - Area of Interest (POI)
+
     poiType: v.union(v.literal("EXTREME"), v.literal("DECISIONAL")),
     poiQuality: v.array(v.string()),
     poiDescription: v.optional(v.string()),
@@ -57,8 +85,7 @@ export default defineSchema({
     liquidityPoolDescription: v.optional(v.string()),
     cleanBreak: v.optional(v.boolean()),
     breakSize: v.optional(v.number()),
-    
-    // WWA Framework - Traps & Inducement
+
     trapSwept: v.union(v.literal("YES"), v.literal("NO"), v.literal("PARTIAL")),
     trapType: v.optional(v.string()),
     trapLocation: v.optional(v.number()),
@@ -68,8 +95,7 @@ export default defineSchema({
     liquidityTappedCount: v.optional(v.number()),
     retailBehavior: v.optional(v.string()),
     missingInducement: v.boolean(),
-    
-    // WWA Framework - Entry & Confirmation (Trinity)
+
     ltfEntryTimeframe: v.optional(v.string()),
     smcType: v.optional(v.string()),
     smsAfterTrap: v.boolean(),
@@ -78,18 +104,20 @@ export default defineSchema({
     rtoApplicable: v.boolean(),
     rtoDistance: v.optional(v.number()),
     entryConfidence: v.optional(v.number()),
-    
-    // Trade Execution
+
     tradeModel: v.union(v.literal("CONTINUATION"), v.literal("REVERSAL")),
     narrativeAlignment: v.boolean(),
     tradingWithMainPush: v.boolean(),
     noNarrativeMisalignment: v.boolean(),
     clearLiquidityEngineering: v.optional(v.string()),
     institutionsReasoned: v.optional(v.boolean()),
-    poiMitigationStatus: v.union(v.literal("UNMITIGATED"), v.literal("MITIGATED_ONCE"), v.literal("WEAKENED")),
+    poiMitigationStatus: v.union(
+      v.literal("UNMITIGATED"),
+      v.literal("MITIGATED_ONCE"),
+      v.literal("WEAKENED"),
+    ),
     approachDynamics: v.optional(v.string()),
-    
-    // Risk Management
+
     stopLossPrice: v.number(),
     stopLossPlacement: v.string(),
     stopLossPips: v.number(),
@@ -100,8 +128,7 @@ export default defineSchema({
     target2RR: v.number(),
     target1Price: v.optional(v.number()),
     target2Price: v.optional(v.number()),
-    
-    // Post-Entry Trade Management
+
     timeInTradeMinutes: v.optional(v.number()),
     maxProfitReached: v.optional(v.number()),
     maxDrawdown: v.optional(v.number()),
@@ -118,19 +145,21 @@ export default defineSchema({
     manualExitReason: v.optional(v.string()),
     manualExitAligned: v.optional(v.boolean()),
     tradeClosureReason: v.string(),
-    
-    // Trade Outcome & Analysis
+
     pnl: v.optional(v.number()),
     pnlPercentage: v.optional(v.number()),
-    winLossStatus: v.union(v.literal("WIN"), v.literal("LOSS"), v.literal("BREAK_EVEN")),
+    winLossStatus: v.union(
+      v.literal("WIN"),
+      v.literal("LOSS"),
+      v.literal("BREAK_EVEN"),
+    ),
     tradeQualityScore: v.optional(v.number()),
     poiQualityRating: v.optional(v.string()),
     inducementQualityRating: v.optional(v.string()),
     trinityAlignmentRating: v.optional(v.string()),
     riskExecutionRating: v.optional(v.string()),
     disciplineRating: v.optional(v.string()),
-    
-    // Post-Trade Reflection
+
     whyEntered: v.optional(v.string()),
     playedAsExpected: v.optional(v.boolean()),
     expansionDescription: v.optional(v.string()),
@@ -147,9 +176,10 @@ export default defineSchema({
     managedRiskPerPlan: v.optional(v.boolean()),
     disciplineScore: v.optional(v.number()),
 
-    // Screenshots
+    captures: v.optional(v.array(tradeCaptureValidator)),
     screenshots: v.optional(v.array(v.id("_storage"))),
-  }).index("by_createdAt", ["createdAt"])
+  })
+    .index("by_createdAt", ["createdAt"])
     .index("by_instrument", ["instrument"])
     .index("by_session", ["session"])
     .index("by_tradeModel", ["tradeModel"])
@@ -161,9 +191,12 @@ export default defineSchema({
     date: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-    
-    // Morning Bias
-    currentDailyBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
+
+    currentDailyBias: v.union(
+      v.literal("BULLISH"),
+      v.literal("BEARISH"),
+      v.literal("NEUTRAL"),
+    ),
     biasConfidence: v.number(),
     biasReason: v.string(),
     asiaHigh: v.optional(v.number()),
@@ -171,8 +204,19 @@ export default defineSchema({
     previousDayHigh: v.optional(v.number()),
     previousDayLow: v.optional(v.number()),
     htfPoiTargeted: v.optional(v.string()),
-    
-    // Session Expectations
+
+    morningContextNotes: v.optional(v.string()),
+    morningScreenshots: v.optional(v.array(screenshotWithCaptionValidator)),
+    eveningContextNotes: v.optional(v.string()),
+    eveningScreenshots: v.optional(v.array(screenshotWithCaptionValidator)),
+    sessionScreenshots: v.optional(
+      v.object({
+        ASIA: v.optional(v.array(v.id("_storage"))),
+        LONDON: v.optional(v.array(v.id("_storage"))),
+        NY: v.optional(v.array(v.id("_storage"))),
+      }),
+    ),
+
     asiaExpectedBehavior: v.optional(v.string()),
     asiaLiquidityToWatch: v.optional(v.string()),
     asiaSetupTypes: v.optional(v.string()),
@@ -182,29 +226,49 @@ export default defineSchema({
     nyExpectedBehavior: v.optional(v.string()),
     nyTargets: v.optional(v.string()),
     nyKeyLiquidity: v.optional(v.string()),
-    
-    // Trading Plan
+
     bestInstrument: v.optional(v.string()),
     bestInstrumentReason: v.optional(v.string()),
     secondChoice: v.optional(v.string()),
     secondChoiceReason: v.optional(v.string()),
     avoidInstrument: v.optional(v.string()),
     avoidReason: v.optional(v.string()),
-    sessionToTrade: v.union(v.literal("ASIA"), v.literal("LONDON"), v.literal("NY"), v.literal("MULTIPLE")),
+    sessionToTrade: v.union(
+      v.literal("ASIA"),
+      v.literal("LONDON"),
+      v.literal("NY"),
+      v.literal("MULTIPLE"),
+    ),
     supportLevels: v.optional(v.string()),
     resistanceLevels: v.optional(v.string()),
     equalHighsLows: v.optional(v.string()),
     trendlines: v.optional(v.string()),
-    modelToFocus: v.union(v.literal("CONTINUATION"), v.literal("REVERSAL"), v.literal("BOTH")),
-    minimumPoiQuality: v.union(v.literal("PRISTINE"), v.literal("CLEAN"), v.literal("ACCEPTABLE")),
+    modelToFocus: v.union(
+      v.literal("CONTINUATION"),
+      v.literal("REVERSAL"),
+      v.literal("BOTH"),
+    ),
+    minimumPoiQuality: v.union(
+      v.literal("PRISTINE"),
+      v.literal("CLEAN"),
+      v.literal("ACCEPTABLE"),
+    ),
     willTradeWithoutInducement: v.boolean(),
     targetTrades: v.optional(v.number()),
     maxDailyLoss: v.optional(v.number()),
     confidenceForToday: v.number(),
-    
-    // Evening Review
-    actualMovement: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"), v.literal("SIDEWAYS"))),
-    wasCorrect: v.optional(v.union(v.literal("YES"), v.literal("NO"), v.literal("PARTIAL"))),
+
+    actualMovement: v.optional(
+      v.union(
+        v.literal("BULLISH"),
+        v.literal("BEARISH"),
+        v.literal("NEUTRAL"),
+        v.literal("SIDEWAYS"),
+      ),
+    ),
+    wasCorrect: v.optional(
+      v.union(v.literal("YES"), v.literal("NO"), v.literal("PARTIAL")),
+    ),
     accuracyScore: v.optional(v.number()),
     asiaExpected: v.optional(v.string()),
     asiaActual: v.optional(v.string()),
@@ -225,7 +289,9 @@ export default defineSchema({
     followedPlan: v.optional(v.boolean()),
     planViolationExplanation: v.optional(v.string()),
     overallDiscipline: v.optional(v.number()),
-    tomorrowDirection: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
+    tomorrowDirection: v.optional(
+      v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
+    ),
     tomorrowConfidence: v.optional(v.number()),
     whatChanged: v.optional(v.string()),
     keyLevelsTomorrow: v.optional(v.string()),
@@ -236,84 +302,12 @@ export default defineSchema({
     weekEnd: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-    
-    // Weekly Numbers
-    totalTrades: v.number(),
-    winningTrades: v.number(),
-    losingTrades: v.number(),
-    totalPnl: v.number(),
-    biggestWin: v.number(),
-    biggestLoss: v.number(),
-    avgWin: v.number(),
-    avgLoss: v.number(),
-    profitFactor: v.number(),
-    
-    // Trinity Compliance
-    inducementPercentage: v.number(),
-    ltcPercentage: v.number(),
-    killzonePercentage: v.number(),
-    avgTrinityScore: v.number(),
-    
-    // Narrative Alignment
-    tradesAgainstHtf: v.number(),
-    thoseLostMore: v.boolean(),
-    narrativeAbilityScore: v.number(),
-    
-    // POI Quality
-    avgPoiQualityScore: v.number(),
-    pristineCleanSetups: v.number(),
-    questionableSetups: v.number(),
-    lossesOnLowQuality: v.boolean(),
-    
-    // Inducement Recognition
-    inducementRecognitionScore: v.number(),
-    prematureEntries: v.number(),
-    prematureEntryCost: v.number(),
-    improvePatienceNote: v.optional(v.string()),
-    
-    // Patience & Discipline
-    forcedTrades: v.number(),
-    waitedTrades: v.number(),
-    forcedTradesLostMore: v.boolean(),
-    patienceScore: v.number(),
-    skippedObviousSetups: v.boolean(),
-    skippedSetupsReason: v.optional(v.string()),
-    
-    // Market Conditions
-    asiaRangeClarity: v.optional(v.string()),
-    asiaBestInstruments: v.optional(v.string()),
-    asiaWorstInstruments: v.optional(v.string()),
-    londonTrapsObvious: v.optional(v.boolean()),
-    londonBestTrade: v.optional(v.string()),
-    londonWorstTrade: v.optional(v.string()),
-    nyContinuationPattern: v.optional(v.string()),
-    nyBestTrade: v.optional(v.string()),
-    nyWorstTrade: v.optional(v.string()),
-    mostCommonTrapType: v.optional(v.string()),
-    institutionsObvious: v.optional(v.boolean()),
-    unusualPatterns: v.optional(v.string()),
-    patternsObservation: v.optional(v.string()),
-    
-    // Edge Assessment
-    bestTradeDescription: v.optional(v.string()),
-    whyBestWorked: v.optional(v.string()),
-    patternToLookFor: v.optional(v.string()),
-    patternConfidence: v.optional(v.number()),
-    worstTradeDescription: v.optional(v.string()),
-    whyWorstFailed: v.optional(v.string()),
-    howToAvoidNextWeek: v.optional(v.string()),
+    finalizedAt: v.optional(v.number()),
+
     biggestLessonMarket: v.optional(v.string()),
     biggestLessonSelf: v.optional(v.string()),
     adjustmentNextWeek: v.optional(v.string()),
-    
-    // Setup Quality Scores
-    poiIdentificationScore: v.number(),
-    inducementRecognitionScore2: v.number(),
-    entryExecutionScore: v.number(),
-    riskManagementScore: v.number(),
-    overallSetupQualityScore: v.number(),
-    
-    // Action Items
+
     topPriorityImprovement: v.string(),
     specificActionToImprove: v.string(),
     successMetric: v.string(),
@@ -322,154 +316,56 @@ export default defineSchema({
     secondSuccessMetric: v.optional(v.string()),
     setupsToAvoid: v.optional(v.string()),
     confidenceNextWeek: v.number(),
-    
-    // Mental/Emotional
+
     howFeeling: v.optional(v.string()),
     emotionsAffectedTrading: v.optional(v.boolean()),
     emotionManagementPlan: v.optional(v.string()),
     readinessScore: v.number(),
+
+    contextNotes: v.optional(v.string()),
+    screenshots: v.optional(v.array(screenshotWithCaptionValidator)),
   }).index("by_weekStart", ["weekStart"]),
 
-  weeklyFundamentalAnalysis: defineTable({
+  weeklyGameplans: defineTable({
     weekStart: v.string(),
     weekEnd: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-    
-    // Macro Overview
-    overallRiskSentiment: v.union(v.literal("RISK_ON"), v.literal("RISK_OFF"), v.literal("NEUTRAL")),
-    riskSentimentDirection: v.union(v.literal("UP"), v.literal("DOWN"), v.literal("SIDEWAYS")),
-    dxyWeeklyBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    dxyDirection: v.union(v.literal("UP"), v.literal("DOWN"), v.literal("SIDEWAYS")),
-    us10yrYield: v.optional(v.number()),
-    us10yrDirection: v.union(v.literal("UP"), v.literal("DOWN"), v.literal("SIDEWAYS")),
-    vixLevel: v.optional(v.number()),
-    vixDirection: v.union(v.literal("ABOVE_20"), v.literal("BELOW_20")),
-    goldDirection: v.union(v.literal("UP"), v.literal("DOWN"), v.literal("FLAT")),
-    wtiOil: v.optional(v.number()),
-    wtiDirection: v.union(v.literal("UP"), v.literal("DOWN")),
-    
-    // Key Events This Week
-    mondayEvents: v.optional(v.string()),
-    tuesdayEvents: v.optional(v.string()),
-    wednesdayEvents: v.optional(v.string()),
-    thursdayEvents: v.optional(v.string()),
-    fridayEvents: v.optional(v.string()),
-    highestImpactEvent: v.optional(v.string()),
-    expectedMarketReaction: v.optional(v.string()),
-    
-    // Central Bank Watch - Fed
-    fedMeetingsSpeeches: v.optional(v.string()),
-    fedCurrentRate: v.optional(v.number()),
-    fedMarketExpects: v.optional(v.string()),
-    fedHoldProbability: v.optional(v.number()),
-    fedCutProbability: v.optional(v.number()),
-    fedHikeProbability: v.optional(v.number()),
-    
-    // ECB
-    ecbMeetingsSpeeches: v.optional(v.string()),
-    ecbCurrentRate: v.optional(v.number()),
-    ecbTone: v.optional(v.string()),
-    
-    // BoE
-    boeMeetingsSpeeches: v.optional(v.string()),
-    boeCurrentRate: v.optional(v.number()),
-    boeVoteSplit: v.optional(v.string()),
-    
-    // BoJ
-    bojMeetingsSpeeches: v.optional(v.string()),
-    yccStatus: v.optional(v.string()),
-    
-    // Inflation & Growth Data
-    usCPIHeadline: v.optional(v.number()),
-    usCPIHeadlinePrior: v.optional(v.number()),
-    usCPIHeadlineTrend: v.optional(v.union(v.literal("RISING"), v.literal("FALLING"), v.literal("STICKY"))),
-    usCoreCPI: v.optional(v.number()),
-    usCoreCPIPrior: v.optional(v.number()),
-    usCoreCPITrend: v.optional(v.union(v.literal("RISING"), v.literal("FALLING"), v.literal("STICKY"))),
-    corePCE: v.optional(v.number()),
-    corePCEPrior: v.optional(v.number()),
-    corePCETrend: v.optional(v.union(v.literal("RISING"), v.literal("FALLING"), v.literal("STICKY"))),
-    nfpJobsAdded: v.optional(v.number()),
-    nfpPrior: v.optional(v.number()),
-    nfpTrend: v.optional(v.union(v.literal("ACCELERATING"), v.literal("DECELERATING"))),
-    unemploymentRate: v.optional(v.number()),
-    unemploymentTrend: v.optional(v.union(v.literal("TIGHTENING"), v.literal("LOOSENING"))),
-    usGDP: v.optional(v.number()),
-    usGDPPrior: v.optional(v.number()),
-    usGDPTrend: v.optional(v.union(v.literal("ACCELERATING"), v.literal("DECELERATING"))),
-    inflationNarrative: v.optional(v.string()),
-    growthNarrative: v.optional(v.string()),
-    
-    // COT Report Analysis
-    eurNetPositions: v.optional(v.number()),
-    eurPositionChange: v.optional(v.number()),
-    eurSignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    gbpNetPositions: v.optional(v.number()),
-    gbpPositionChange: v.optional(v.number()),
-    gbpSignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    jpyNetPositions: v.optional(v.number()),
-    jpyPositionChange: v.optional(v.number()),
-    jpySignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    audNetPositions: v.optional(v.number()),
-    audPositionChange: v.optional(v.number()),
-    audSignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    cadNetPositions: v.optional(v.number()),
-    cadPositionChange: v.optional(v.number()),
-    cadSignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    nzdNetPositions: v.optional(v.number()),
-    nzdPositionChange: v.optional(v.number()),
-    nzdSignal: v.optional(v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL"))),
-    extremePositioningAlert: v.optional(v.string()),
-    
-    // Currency Bias
-    usdBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    usdReason: v.optional(v.string()),
-    eurBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    eurReason: v.optional(v.string()),
-    gbpBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    gbpReason: v.optional(v.string()),
-    jpyBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    jpyReason: v.optional(v.string()),
-    cadBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    cadReason: v.optional(v.string()),
-    audBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    audReason: v.optional(v.string()),
-    chfBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    chfReason: v.optional(v.string()),
-    nzdBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    nzdReason: v.optional(v.string()),
-    
-    // Trade Ideas
-    trade1Pair: v.optional(v.string()),
-    trade1Direction: v.optional(v.union(v.literal("LONG"), v.literal("SHORT"))),
-    trade1Reason: v.optional(v.string()),
-    trade1KeyLevel: v.optional(v.string()),
-    trade1Invalidation: v.optional(v.string()),
-    trade2Pair: v.optional(v.string()),
-    trade2Direction: v.optional(v.union(v.literal("LONG"), v.literal("SHORT"))),
-    trade2Reason: v.optional(v.string()),
-    trade2KeyLevel: v.optional(v.string()),
-    trade2Invalidation: v.optional(v.string()),
-    
-    // High Risk Events to Avoid
-    highRiskEvent1: v.optional(v.string()),
-    highRiskDate1: v.optional(v.string()),
-    highRiskReason1: v.optional(v.string()),
-    highRiskEvent2: v.optional(v.string()),
-    highRiskDate2: v.optional(v.string()),
-    highRiskReason2: v.optional(v.string()),
-    
-    // Geopolitical Watch
-    activeRisks: v.optional(v.string()),
-    potentialShockEvents: v.optional(v.string()),
-    safeHavenBias: v.optional(v.string()),
-    
-    // End of Week Review
-    confirmationOfBias: v.optional(v.string()),
-    surprisingData: v.optional(v.string()),
-    missedAnalysis: v.optional(v.string()),
-    adjustmentsNextWeek: v.optional(v.string()),
+
+    weeklyBias: v.union(
+      v.literal("BULLISH"),
+      v.literal("BEARISH"),
+      v.literal("NEUTRAL"),
+    ),
+    biasConfidence: v.number(),
+    biasReason: v.string(),
+
+    instrumentsToFocus: v.optional(v.string()),
+    instrumentsToAvoid: v.optional(v.string()),
+    sessionFocus: v.optional(
+      v.union(
+        v.literal("ASIA"),
+        v.literal("LONDON"),
+        v.literal("NEW_YORK"),
+      ),
+    ),
+    modelToFocus: v.optional(
+      v.union(v.literal("CONTINUATION"), v.literal("REVERSAL"), v.literal("BOTH")),
+    ),
+    minimumPoiQuality: v.optional(
+      v.union(v.literal("PRISTINE"), v.literal("CLEAN"), v.literal("ACCEPTABLE")),
+    ),
+
+    targetTrades: v.optional(v.number()),
+    maxWeeklyLoss: v.optional(v.number()),
+    willTradeWithoutInducement: v.boolean(),
+    eventsToAvoid: v.optional(v.string()),
+
+    carryForwardNotes: v.optional(v.string()),
+    confidenceForWeek: v.number(),
+
+    contextNotes: v.optional(v.string()),
+    screenshots: v.optional(v.array(screenshotWithCaptionValidator)),
   }).index("by_weekStart", ["weekStart"]),
 
   dailyNotes: defineTable({

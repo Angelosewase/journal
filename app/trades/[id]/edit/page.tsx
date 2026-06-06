@@ -687,6 +687,7 @@ export default function EditTradePage() {
 
   useEffect(() => {
     if (trade && Object.keys(f).length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate edit form from query
       setF({
         accountId: trade.accountId || "",
         instrument: trade.instrument || "EUR/USD",

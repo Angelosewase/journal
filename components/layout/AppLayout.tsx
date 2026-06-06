@@ -63,12 +63,7 @@ const navigationItems = [
       icon: ClipboardList,
     },
     {
-      title: "Notes",
-      url: "/daily-notes",
-      icon: StickyNote,
-    },
-    {
-      title: "Weekly",
+      title: "Planning",
       url: "/weekly",
       icon: BarChart3 ,
     },
@@ -97,12 +92,12 @@ function generateBreadcrumbs(pathname: string) {
     trades: "Trade Log",
     "daily-notes": "Daily Notes",
     "daily-bias": "Daily Bias",
-    weekly: "Weekly",
+    weekly: "Planning",
+    gameplan: "Pre-Gameplan",
+    review: "Review",
     statistics: "Statistics",
     settings: "Settings",
     login: "Login",
-    fundamental: "Fundamental Analysis",
-    review: "Review",
     new: "New",
   };
 
@@ -144,6 +139,7 @@ export default function AppLayout({
   const [historyLength, setHistoryLength] = useState(1);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser history length on mount
     setHistoryLength(window.history.length);
 
     const handlePopState = () => {

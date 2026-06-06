@@ -31,6 +31,10 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { computeDayReviewStats, deriveDayReviewFields } from "@/lib/review-stats";
+import { ContentCard } from "@/components/ui/content-card";
+import { StatInline, SectionHeading } from "@/components/ui/page-shell";
+import { ContextBlock, type ScreenshotItem } from "@/components/ContextBlock";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -489,19 +493,25 @@ function EveningViewCard({ b }: { b: any }) {
 export default function EveningReviewPage() {
   const router = useRouter();
   const dailyBiases = useQuery(api.dailyBias.list);
+  const trades = useQuery(api.trades.list);
   const updateBias = useMutation(api.dailyBias.update);
   const removeBias = useMutation(api.dailyBias.remove);
 
   const today = new Date().toISOString().split("T")[0];
   const todayBias = dailyBiases?.find((b) => b.date === today);
+  const dayStats = computeDayReviewStats(trades, today);
+  const derived = deriveDayReviewFields(dayStats);
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  const [eveningContextNotes, setEveningContextNotes] = useState("");
+  const [eveningScreenshots, setEveningScreenshots] = useState<ScreenshotItem[]>([]);
 
   useEffect(() => {
     if (todayBias) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate edit form from query
       setFormData({
         actualMovement:           todayBias.actualMovement || "",
         wasCorrect:               todayBias.wasCorrect || "",
@@ -528,6 +538,8 @@ export default function EveningReviewPage() {
         whatChanged:              todayBias.whatChanged || "",
         keyLevelsTomorrow:        todayBias.keyLevelsTomorrow || "",
       });
+      setEveningContextNotes(todayBias.eveningContextNotes ?? "");
+      setEveningScreenshots(todayBias.eveningScreenshots ?? []);
       setIsEditing(!todayBias.actualMovement);
     }
   }, [todayBias]);
@@ -557,18 +569,20 @@ export default function EveningReviewPage() {
         nyMajorMove:              formData.nyMajorMove,
         mostObviousTrap:          formData.mostObviousTrap,
         institutionsShowedHand:   formData.institutionsShowedHand || undefined,
-        tradesTaken:              formData.tradesTaken ? Number(formData.tradesTaken) : undefined,
-        tradesWorked:             formData.tradesWorked ? Number(formData.tradesWorked) : undefined,
-        tradesFailed:             formData.tradesFailed ? Number(formData.tradesFailed) : undefined,
+        tradesTaken:              formData.tradesTaken ? Number(formData.tradesTaken) : derived.tradesTaken,
+        tradesWorked:             formData.tradesWorked ? Number(formData.tradesWorked) : derived.tradesWorked,
+        tradesFailed:             formData.tradesFailed ? Number(formData.tradesFailed) : derived.tradesFailed,
         followedPlan:             formData.followedPlan || undefined,
         planViolationExplanation: formData.planViolationExplanation,
-        overallDiscipline:        Number(formData.overallDiscipline),
+        overallDiscipline:        formData.overallDiscipline ? Number(formData.overallDiscipline) : derived.overallDiscipline,
         tomorrowDirection:        formData.tomorrowDirection,
         tomorrowConfidence:       Number(formData.tomorrowConfidence),
         whatChanged:              formData.whatChanged,
         keyLevelsTomorrow:        formData.keyLevelsTomorrow,
+        eveningContextNotes:      eveningContextNotes || undefined,
+        eveningScreenshots:       eveningScreenshots.length ? eveningScreenshots : undefined,
       });
-      toast.success("Evening review saved!");
+      toast.success("Daily review saved!");
       setIsEditing(false);
     } catch {
       toast.error("Failed to save evening review");
@@ -591,7 +605,7 @@ export default function EveningReviewPage() {
           <Button variant="ghost" size="icon-sm" asChild>
             <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
-          <h1 className="text-xl font-semibold tracking-tight">Evening Review</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Daily Review</h1>
         </div>
         <div className="rounded-2xl border bg-card p-10 text-center space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -624,7 +638,7 @@ export default function EveningReviewPage() {
             <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Evening Review</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Daily Review</h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
@@ -673,6 +687,27 @@ export default function EveningReviewPage() {
             <span className="text-xs text-muted-foreground tabular-nums">{currentStep + 1}/{STEPS.length}</span>
           </div>
 
+          <ContentCard>
+            <SectionHeading>Today&apos;s trade stats (live)</SectionHeading>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <StatInline label="P&L" value={`$${dayStats.totalPnl.toFixed(2)}`} valueClassName={dayStats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
+              <StatInline label="Trades" value={derived.tradesTaken} />
+              <StatInline label="Worked" value={derived.tradesWorked} />
+              <StatInline label="Failed" value={derived.tradesFailed} />
+              <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+            </div>
+          </ContentCard>
+
+          <ContextBlock
+            title="Evening context"
+            notes={eveningContextNotes}
+            onNotesChange={setEveningContextNotes}
+            screenshots={eveningScreenshots}
+            onScreenshotsChange={setEveningScreenshots}
+            collapsible
+            defaultExpanded
+          />
+
           {/* Step content */}
           <div className="rounded-2xl border bg-card p-6 min-h-[360px]">
             <div className="mb-6">
@@ -716,7 +751,7 @@ export default function EveningReviewPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Delete Evening Review</DialogTitle>
+            <DialogTitle>Delete Daily Review</DialogTitle>
             <DialogDescription>
               Are you sure? This will also delete the morning bias. This action cannot be undone.
             </DialogDescription>

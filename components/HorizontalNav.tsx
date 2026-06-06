@@ -32,8 +32,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/trades", label: "Trade Log", icon: ClipboardList },
-  { href: "/daily-notes", label: "Notes", icon: StickyNote },
-  { href: "/weekly", label: "Weekly", icon: BarChart3 },
+  { href: "/weekly", label: "Planning", icon: BarChart3 },
   { href: "/statistics", label: "Statistics", icon: TrendingUp },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

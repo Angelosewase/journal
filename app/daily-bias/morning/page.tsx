@@ -39,6 +39,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ContextBlock, type ScreenshotItem } from "@/components/ContextBlock";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -572,9 +573,12 @@ export default function MorningBiasPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  const [morningContextNotes, setMorningContextNotes] = useState("");
+  const [morningScreenshots, setMorningScreenshots] = useState<ScreenshotItem[]>([]);
 
   useEffect(() => {
     if (todayBias) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate edit form from query
       setFormData({
         currentDailyBias: todayBias.currentDailyBias || "NEUTRAL",
         biasConfidence: String(todayBias.biasConfidence ?? 5),
@@ -603,8 +607,12 @@ export default function MorningBiasPage() {
         maxDailyLoss: String(todayBias.maxDailyLoss ?? ""),
         confidenceForToday: String(todayBias.confidenceForToday ?? 5),
       });
+      setMorningContextNotes(todayBias.morningContextNotes ?? "");
+      setMorningScreenshots(todayBias.morningScreenshots ?? []);
     } else {
       setFormData(EMPTY_FORM);
+      setMorningContextNotes("");
+      setMorningScreenshots([]);
     }
   }, [todayBias]);
 
@@ -641,6 +649,8 @@ export default function MorningBiasPage() {
         targetTrades: formData.targetTrades ? Number(formData.targetTrades) : undefined,
         maxDailyLoss: formData.maxDailyLoss ? Number(formData.maxDailyLoss) : undefined,
         confidenceForToday: Number(formData.confidenceForToday),
+        morningContextNotes: morningContextNotes || undefined,
+        morningScreenshots: morningScreenshots.length ? morningScreenshots : undefined,
       };
 
       if (todayBias?._id) {
@@ -648,7 +658,7 @@ export default function MorningBiasPage() {
       } else {
         await createBias(data);
       }
-      toast.success("Morning bias saved!");
+      toast.success("Daily pre-gameplan saved!");
       setIsEditing(false);
     } catch {
       toast.error("Failed to save morning bias");
@@ -682,7 +692,7 @@ export default function MorningBiasPage() {
             <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Morning Bias</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Daily Pre-Gameplan</h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
@@ -733,6 +743,16 @@ export default function MorningBiasPage() {
             <span className="text-xs text-muted-foreground tabular-nums">{currentStep + 1}/{STEPS.length}</span>
           </div>
 
+          <ContextBlock
+            title="Morning context"
+            notes={morningContextNotes}
+            onNotesChange={setMorningContextNotes}
+            screenshots={morningScreenshots}
+            onScreenshotsChange={setMorningScreenshots}
+            collapsible
+            defaultExpanded
+          />
+
           {/* Step content */}
           <div className="rounded-2xl border bg-card p-6 min-h-[360px]">
             <div className="mb-6">
@@ -772,7 +792,7 @@ export default function MorningBiasPage() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Delete Morning Bias</DialogTitle>
+            <DialogTitle>Delete Daily Pre-Gameplan</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete today&apos;s morning bias? This action cannot be undone.
             </DialogDescription>

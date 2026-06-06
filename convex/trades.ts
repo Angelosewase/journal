@@ -1,6 +1,18 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+const tradeCaptureValidator = v.object({
+  storageId: v.id("_storage"),
+  label: v.union(
+    v.literal("HTF"),
+    v.literal("ENTRY"),
+    v.literal("EXIT"),
+    v.literal("OTHER"),
+  ),
+  caption: v.optional(v.string()),
+  capturedAt: v.optional(v.number()),
+});
+
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
@@ -133,6 +145,7 @@ export const create = mutation({
     waitedForInducement: v.optional(v.boolean()),
     managedRiskPerPlan: v.optional(v.boolean()),
     disciplineScore: v.optional(v.number()),
+    captures: v.optional(v.array(tradeCaptureValidator)),
     screenshots: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
@@ -204,113 +217,6 @@ export const getByFilters = query({
     }
     
     return trades.sort((a, b) => b.createdAt - a.createdAt);
-  },
-});
-
-export const getStatistics = query({
-  args: {},
-  handler: async (ctx) => {
-    const trades = await ctx.db.query("trades").collect();
-    
-    const totalTrades = trades.length;
-    const winningTrades = trades.filter(t => t.winLossStatus === "WIN");
-    const losingTrades = trades.filter(t => t.winLossStatus === "LOSS");
-    const breakEvenTrades = trades.filter(t => t.winLossStatus === "BREAK_EVEN");
-    
-    const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
-    
-    const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const avgWin = winningTrades.length > 0 
-      ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length 
-      : 0;
-    const avgLoss = losingTrades.length > 0 
-      ? Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / losingTrades.length) 
-      : 0;
-    const profitFactor = avgLoss > 0 ? avgWin / avgLoss : 0;
-    
-    const avgQuality = trades.length > 0 
-      ? trades.reduce((sum, t) => sum + (t.tradeQualityScore || 0), 0) / trades.length 
-      : 0;
-    
-    const avgTrinityScore = trades.length > 0 
-      ? trades.filter(t => t.tradeQualityScore).reduce((sum, t) => {
-          const score = (t.followedTrinity ? 3 : 0) + (t.correctKillzone ? 3 : 0) + ((t.entryConfidence || 5) / 3.33);
-          return sum + score;
-        }, 0) / trades.length 
-      : 0;
-    
-    const avgDisciplineScore = trades.length > 0 
-      ? trades.reduce((sum, t) => sum + (t.disciplineScore || 5), 0) / trades.length 
-      : 0;
-    
-    const continuationTrades = trades.filter(t => t.tradeModel === "CONTINUATION");
-    const reversalTrades = trades.filter(t => t.tradeModel === "REVERSAL");
-    
-    const bySession: Record<string, { count: number; wins: number; pnl: number; quality: number }> = {};
-    const byInstrument: Record<string, { count: number; wins: number; pnl: number }> = {};
-    
-    trades.forEach(t => {
-      if (!bySession[t.session]) {
-        bySession[t.session] = { count: 0, wins: 0, pnl: 0, quality: 0 };
-      }
-      bySession[t.session].count++;
-      bySession[t.session].wins += t.winLossStatus === "WIN" ? 1 : 0;
-      bySession[t.session].pnl += t.pnl || 0;
-      bySession[t.session].quality += t.tradeQualityScore || 0;
-      
-      if (!byInstrument[t.instrument]) {
-        byInstrument[t.instrument] = { count: 0, wins: 0, pnl: 0 };
-      }
-      byInstrument[t.instrument].count++;
-      byInstrument[t.instrument].wins += t.winLossStatus === "WIN" ? 1 : 0;
-      byInstrument[t.instrument].pnl += t.pnl || 0;
-    });
-    
-    return {
-      totalTrades,
-      winningTrades: winningTrades.length,
-      losingTrades: losingTrades.length,
-      breakEvenTrades: breakEvenTrades.length,
-      winRate: Math.round(winRate * 10) / 10,
-      totalPnl: Math.round(totalPnl * 100) / 100,
-      avgWin: Math.round(avgWin * 100) / 100,
-      avgLoss: Math.round(avgLoss * 100) / 100,
-      profitFactor: Math.round(profitFactor * 100) / 100,
-      avgQuality: Math.round(avgQuality * 10) / 10,
-      avgTrinityScore: Math.round(avgTrinityScore * 10) / 10,
-      avgDisciplineScore: Math.round(avgDisciplineScore * 10) / 10,
-      continuationModel: {
-        total: continuationTrades.length,
-        winRate: continuationTrades.length > 0 
-          ? Math.round((continuationTrades.filter(t => t.winLossStatus === "WIN").length / continuationTrades.length) * 1000) / 10 
-          : 0,
-        avgQuality: continuationTrades.length > 0 
-          ? Math.round(continuationTrades.reduce((sum, t) => sum + (t.tradeQualityScore || 0), 0) / continuationTrades.length * 10) / 10 
-          : 0,
-      },
-      reversalModel: {
-        total: reversalTrades.length,
-        winRate: reversalTrades.length > 0 
-          ? Math.round((reversalTrades.filter(t => t.winLossStatus === "WIN").length / reversalTrades.length) * 1000) / 10 
-          : 0,
-        avgQuality: reversalTrades.length > 0 
-          ? Math.round(reversalTrades.reduce((sum, t) => sum + (t.tradeQualityScore || 0), 0) / reversalTrades.length * 10) / 10 
-          : 0,
-      },
-      bySession: Object.entries(bySession).map(([session, data]) => ({
-        session,
-        count: data.count,
-        winRate: data.count > 0 ? Math.round((data.wins / data.count) * 1000) / 10 : 0,
-        avgQuality: data.count > 0 ? Math.round((data.quality / data.count) * 10) / 10 : 0,
-        totalPnl: Math.round(data.pnl * 100) / 100,
-      })),
-      byInstrument: Object.entries(byInstrument).map(([instrument, data]) => ({
-        instrument,
-        count: data.count,
-        winRate: data.count > 0 ? Math.round((data.wins / data.count) * 1000) / 10 : 0,
-        totalPnl: Math.round(data.pnl * 100) / 100,
-      })),
-    };
   },
 });
 

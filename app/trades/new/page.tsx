@@ -1,765 +1,219 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, ChevronLeft, ChevronRight, CheckCircle2, Info, Layers, Zap, Shield, BarChart2, BookOpen } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
-import { ScreenshotUpload } from "@/components/ScreenshotUpload";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Id } from "@/convex/_generated/dataModel";
-import { cn } from "@/lib/utils";
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-const STEPS = [
-  { id: "basics",     label: "Basics",     icon: Info,      description: "Instrument, direction & prices" },
-  { id: "context",    label: "Context",    icon: Layers,    description: "Structure, bias & session" },
-  { id: "setup",      label: "Setup",      icon: Zap,       description: "POI, traps & Trinity" },
-  { id: "risk",       label: "Risk",       icon: Shield,    description: "Stop loss, sizing & targets" },
-  { id: "outcome",    label: "Outcome",    icon: BarChart2, description: "Result & quality ratings" },
-  { id: "reflection", label: "Reflection", icon: BookOpen,  description: "What happened & lessons" },
-];
-
-const INSTRUMENTS = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP", "GBP/JPY"];
-
-const REQUIRED = ["instrument", "direction", "entryPrice", "stopLossPrice", "riskAmount"];
-function isComplete(f: any) { return REQUIRED.every((k) => f[k] && f[k] !== ""); }
-
-// ─── Primitives ───────────────────────────────────────────────────────────────
-
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={cn(
-        "px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150",
-        active ? "bg-foreground text-background border-foreground"
-               : "text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground"
-      )}>
-      {children}
-    </button>
-  );
-}
-
-function FlatInput({ value, onChange, placeholder, type = "text", step, required }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; step?: string; required?: boolean;
-}) {
-  return (
-    <input type={type} step={step} value={value} required={required}
-      onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "—"}
-      className="w-full rounded-lg bg-muted/40 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-ring" />
-  );
-}
-
-function FlatTextarea({ value, onChange, placeholder, rows = 3 }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
-}) {
-  return (
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows}
-      className="w-full resize-none rounded-lg bg-muted/40 px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-ring" />
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-muted-foreground mb-1.5">{children}</p>;
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">{children}</p>;
-}
-
-function SliderRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const num = Number(value) || 1;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="text-lg font-semibold tabular-nums">{num}<span className="text-xs font-normal text-muted-foreground">/10</span></span>
-      </div>
-      <input type="range" min={1} max={10} value={num} onChange={(e) => onChange(e.target.value)}
-        className="w-full h-1.5 rounded-full accent-foreground cursor-pointer" />
-    </div>
-  );
-}
-
-function PricePair({ leftLabel, leftValue, onLeft, rightLabel, rightValue, onRight, step = "0.00001" }: {
-  leftLabel: string; leftValue: string; onLeft: (v: string) => void;
-  rightLabel: string; rightValue: string; onRight: (v: string) => void;
-  step?: string;
-}) {
-  return (
-    <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
-      <div className="flex-1 space-y-0.5">
-        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{leftLabel}</p>
-        <input type="number" step={step} value={leftValue} onChange={(e) => onLeft(e.target.value)} placeholder="0.00000"
-          className="w-full bg-transparent text-base font-mono font-medium outline-none placeholder:text-muted-foreground/30" />
-      </div>
-      <div className="w-px bg-border" />
-      <div className="flex-1 space-y-0.5">
-        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{rightLabel}</p>
-        <input type="number" step={step} value={rightValue} onChange={(e) => onRight(e.target.value)} placeholder="0.00000"
-          className="w-full bg-transparent text-base font-mono font-medium outline-none placeholder:text-muted-foreground/30" />
-      </div>
-    </div>
-  );
-}
-
-function CheckRow({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Checkbox id={id} checked={checked} onCheckedChange={(c) => onChange(!!c)} />
-      <Label htmlFor={id} className="text-sm cursor-pointer">{label}</Label>
-    </div>
-  );
-}
-
-function TrinityStatus({ label, active }: { label: string; active: boolean }) {
-  return (
-    <div className={cn("flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
-      active ? "border-foreground/20 text-foreground" : "border-border text-muted-foreground line-through")}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", active ? "bg-foreground" : "bg-muted-foreground/30")} />
-      {label}
-    </div>
-  );
-}
-
-// ─── Step: Basics ─────────────────────────────────────────────────────────────
-
-function StepBasics({ f, u, accounts }: { f: any; u: (k: string, v: any) => void; accounts: { _id: string; name: string }[] }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <SectionLabel>Environment</SectionLabel>
-        <div className="flex gap-2">
-          {["BACKTESTING", "DEMO", "LIVE"].map((v) => (
-            <Pill key={v} active={f.environment === v} onClick={() => u("environment", v)}>{v}</Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Instrument</SectionLabel>
-        <div className="flex flex-wrap gap-2">
-          {INSTRUMENTS.map((v) => (
-            <Pill key={v} active={f.instrument === v} onClick={() => u("instrument", v)}>{v}</Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Direction</SectionLabel>
-        <div className="flex gap-2">
-          <Pill active={f.direction === "LONG"}  onClick={() => u("direction", "LONG")}>↑ LONG</Pill>
-          <Pill active={f.direction === "SHORT"} onClick={() => u("direction", "SHORT")}>↓ SHORT</Pill>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Prices</SectionLabel>
-        <PricePair leftLabel="Entry" leftValue={f.entryPrice} onLeft={(v) => u("entryPrice", v)}
-          rightLabel="Exit" rightValue={f.exitPrice} onRight={(v) => u("exitPrice", v)} />
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Size & Fees</SectionLabel>
-        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Lot Size</p>
-            <input type="number" step="0.01" value={f.positionSize} onChange={(e) => u("positionSize", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none" />
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Commission ($)</p>
-            <input type="number" step="0.01" value={f.commission} onChange={(e) => u("commission", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none" />
-          </div>
-        </div>
-      </div>
-
-      {accounts.length > 0 && (
-        <div className="space-y-3">
-          <SectionLabel>Account</SectionLabel>
-          <div className="flex flex-wrap gap-2">
-            <Pill active={f.accountId === "__none__" || !f.accountId} onClick={() => u("accountId", "__none__")}>No account</Pill>
-            {accounts.map((a) => (
-              <Pill key={a._id} active={f.accountId === String(a._id)} onClick={() => u("accountId", String(a._id))}>{a.name}</Pill>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Step: Context ────────────────────────────────────────────────────────────
-
-function StepContext({ f, u }: { f: any; u: (k: string, v: any) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <SectionLabel>Daily Bias</SectionLabel>
-        <div className="flex gap-2">
-          {["BULLISH", "NEUTRAL", "BEARISH"].map((v) => (
-            <Pill key={v} active={f.dailyBias === v} onClick={() => u("dailyBias", v)}>{v}</Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Session</SectionLabel>
-        <div className="flex flex-wrap gap-2">
-          {["ASIA", "LONDON", "NEW_YORK", "OTHER"].map((v) => (
-            <Pill key={v} active={f.session === v} onClick={() => u("session", v)}>{v.replace("_", " ")}</Pill>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 pt-1">
-          <Checkbox id="isInKillzone" checked={f.isInKillzone} onCheckedChange={(c) => u("isInKillzone", !!c)} />
-          <Label htmlFor="isInKillzone" className="text-sm cursor-pointer">In Killzone (London / NY Open)</Label>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <SectionLabel>External Structure (Main Push)</SectionLabel>
-        <FlatTextarea value={f.externalStructure} onChange={(v) => u("externalStructure", v)}
-          placeholder="Main push direction, key structure levels, where institutions are targeting…" rows={3} />
-      </div>
-
-      <div className="space-y-2">
-        <SectionLabel>Major Liquidity Pools</SectionLabel>
-        <FlatTextarea value={f.majorLiquidityPools} onChange={(v) => u("majorLiquidityPools", v)}
-          placeholder="Asia High / Low, Previous D POI, key EQH / EQL…" rows={2} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <FieldLabel>Internal Structure</FieldLabel>
-          <FlatInput value={f.internalStructure} onChange={(v) => u("internalStructure", v)} placeholder="BOS, ChoCH…" />
-        </div>
-        <div className="space-y-1.5">
-          <FieldLabel>Current Range</FieldLabel>
-          <FlatInput value={f.currentRange} onChange={(v) => u("currentRange", v)} placeholder="e.g. 80 pips" />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <FieldLabel>Trade Model</FieldLabel>
-        <div className="flex gap-2">
-          <Pill active={f.tradeModel === "CONTINUATION"} onClick={() => u("tradeModel", "CONTINUATION")}>CONTINUATION</Pill>
-          <Pill active={f.tradeModel === "REVERSAL"}     onClick={() => u("tradeModel", "REVERSAL")}>REVERSAL</Pill>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step: Setup ──────────────────────────────────────────────────────────────
-
-function StepSetup({ f, u }: { f: any; u: (k: string, v: any) => void }) {
-  return (
-    <div className="space-y-6">
-      {/* POI */}
-      <div className="space-y-3">
-        <SectionLabel>POI</SectionLabel>
-        <div className="flex gap-2">
-          <Pill active={f.poiType === "EXTREME"}     onClick={() => u("poiType", "EXTREME")}>EXTREME</Pill>
-          <Pill active={f.poiType === "DECISIONAL"}  onClick={() => u("poiType", "DECISIONAL")}>DECISIONAL</Pill>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {["UNMITIGATED", "MITIGATED_ONCE", "WEAKENED"].map((v) => (
-            <Pill key={v} active={f.poiMitigationStatus === v} onClick={() => u("poiMitigationStatus", v)}>
-              {v.replace("_", " ")}
-            </Pill>
-          ))}
-        </div>
-        <FlatTextarea value={f.poiDescription} onChange={(v) => u("poiDescription", v)}
-          placeholder="Describe the POI — type, location, how it formed…" rows={2} />
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <FieldLabel>Gap size (pips)</FieldLabel>
-            <FlatInput type="number" step="0.1" value={f.gapSize} onChange={(v) => u("gapSize", v)} placeholder="0" />
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Inducement resting</FieldLabel>
-            <FlatInput value={f.inducementResting} onChange={(v) => u("inducementResting", v)} placeholder="Above / Below" />
-          </div>
-        </div>
-      </div>
-
-      {/* Traps */}
-      <div className="space-y-3">
-        <SectionLabel>Trap</SectionLabel>
-        <div className="flex gap-2">
-          {["YES", "NO", "PARTIAL"].map((v) => (
-            <Pill key={v} active={f.trapSwept === v} onClick={() => u("trapSwept", v)}>{v}</Pill>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <FieldLabel>Trap type</FieldLabel>
-            <FlatInput value={f.trapType} onChange={(v) => u("trapType", v)} placeholder="Inducement / SMT…" />
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Trap cleanliness</FieldLabel>
-            <FlatInput value={f.trapCleanliness} onChange={(v) => u("trapCleanliness", v)} placeholder="Clean / Messy" />
-          </div>
-        </div>
-        <CheckRow id="missingInducement" label="Missing inducement (reduces probability)" checked={f.missingInducement} onChange={(v) => u("missingInducement", v)} />
-      </div>
-
-      {/* Trinity status */}
-      <div className="space-y-3">
-        <SectionLabel>Trinity Check</SectionLabel>
-        <div className="space-y-2">
-          <TrinityStatus label="1 · Inducement swept"         active={f.trapSwept === "YES"} />
-          <TrinityStatus label="2 · LTC / SMS confirmation"   active={f.smsAfterTrap} />
-          <TrinityStatus label="3 · In Killzone"              active={f.isInKillzone} />
-        </div>
-        <CheckRow id="smsAfterTrap" label="SMS (Shift in Market Structure) after trap" checked={f.smsAfterTrap} onChange={(v) => u("smsAfterTrap", v)} />
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <FieldLabel>LTF entry TF</FieldLabel>
-            <div className="flex gap-2">
-              <Pill active={f.ltfEntryTimeframe === "1M"} onClick={() => u("ltfEntryTimeframe", "1M")}>1M</Pill>
-              <Pill active={f.ltfEntryTimeframe === "5M"} onClick={() => u("ltfEntryTimeframe", "5M")}>5M</Pill>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>BMS pattern</FieldLabel>
-            <FlatInput value={f.bmsPattern} onChange={(v) => u("bmsPattern", v)} placeholder="BOS / ChoCH…" />
-          </div>
-        </div>
-        <SliderRow label="BMS confidence" value={f.bmsConfidence} onChange={(v) => u("bmsConfidence", v)} />
-        <SliderRow label="Entry confidence" value={f.entryConfidence} onChange={(v) => u("entryConfidence", v)} />
-      </div>
-    </div>
-  );
-}
-
-// ─── Step: Risk ───────────────────────────────────────────────────────────────
-
-function StepRisk({ f, u }: { f: any; u: (k: string, v: any) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <SectionLabel>Stop Loss</SectionLabel>
-        <PricePair leftLabel="SL Price" leftValue={f.stopLossPrice} onLeft={(v) => u("stopLossPrice", v)}
-          rightLabel="SL Pips" rightValue={f.stopLossPips} onRight={(v) => u("stopLossPips", v)} step="0.1" />
-        <div className="flex flex-wrap gap-2">
-          {["IFC_ABOVE", "IFC_BELOW", "REFINED_WICK"].map((v) => (
-            <Pill key={v} active={f.stopLossPlacement === v} onClick={() => u("stopLossPlacement", v)}>
-              {v.replace("_", " ")}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Risk</SectionLabel>
-        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Amount ($)</p>
-            <input type="number" step="0.01" value={f.riskAmount} onChange={(e) => u("riskAmount", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="10.00" />
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">% of Account</p>
-            <input type="number" step="0.1" value={f.riskPercentage} onChange={(e) => u("riskPercentage", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="1.0" />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Targets</SectionLabel>
-        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T1 RR</p>
-            <input type="number" step="0.1" value={f.target1RR} onChange={(e) => u("target1RR", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none" />
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T2 RR</p>
-            <input type="number" step="0.1" value={f.target2RR} onChange={(e) => u("target2RR", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none" />
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">T1 Price</p>
-            <input type="number" step="0.00001" value={f.target1Price} onChange={(e) => u("target1Price", e.target.value)}
-              className="w-full bg-transparent text-base font-mono font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="opt." />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step: Outcome ────────────────────────────────────────────────────────────
-
-function StepOutcome({ f, u }: { f: any; u: (k: string, v: any) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <SectionLabel>Result</SectionLabel>
-        <div className="flex gap-2">
-          {["WIN", "BREAK_EVEN", "LOSS"].map((v) => (
-            <Pill key={v} active={f.winLossStatus === v} onClick={() => u("winLossStatus", v)}>
-              {v.replace("_", " ")}
-            </Pill>
-          ))}
-        </div>
-        <div className="flex gap-2 rounded-xl border bg-muted/20 p-3">
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">P&L ($)</p>
-            <input type="number" step="0.01" value={f.pnl} onChange={(e) => u("pnl", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="0.00" />
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex-1 space-y-0.5">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Final RR</p>
-            <input type="number" step="0.1" value={f.finalRR} onChange={(e) => u("finalRR", e.target.value)}
-              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-muted-foreground/30" placeholder="0.0" />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Closure</SectionLabel>
-        <div className="flex flex-wrap gap-2">
-          {["OPEN", "HIT_TARGET_1_RUNNING", "HIT_TARGET_2_COMPLETELY", "STOPPED_OUT", "MANUAL_EXIT"].map((v) => (
-            <Pill key={v} active={f.tradeClosureReason === v} onClick={() => u("tradeClosureReason", v)}>
-              {v.replace(/_/g, " ")}
-            </Pill>
-          ))}
-        </div>
-        <div className="space-y-2">
-          <CheckRow id="target1Hit"        label="Target 1 hit"              checked={f.target1Hit}        onChange={(v) => u("target1Hit", v)} />
-          <CheckRow id="stopMovedToBE"     label="Stop moved to break even"  checked={f.stopMovedToBE}     onChange={(v) => u("stopMovedToBE", v)} />
-          <CheckRow id="manualExit"        label="Manual exit"               checked={f.manualExit}        onChange={(v) => u("manualExit", v)} />
-        </div>
-        {f.manualExit && (
-          <FlatInput value={f.manualExitReason} onChange={(v) => u("manualExitReason", v)} placeholder="Why did you exit manually?" />
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <SectionLabel>Quality Ratings</SectionLabel>
-        <SliderRow label="Overall trade quality" value={f.tradeQualityScore} onChange={(v) => u("tradeQualityScore", v)} />
-        <div className="space-y-3">
-          {[
-            { label: "POI quality",        field: "poiQualityRating",        opts: ["PRISTINE","CLEAN","ACCEPTABLE","QUESTIONABLE"] },
-            { label: "Inducement quality", field: "inducementQualityRating", opts: ["OBVIOUS","CLEAR","SUBTLE","MISSING"] },
-            { label: "Trinity alignment",  field: "trinityAlignmentRating",  opts: ["PERFECT","STRONG","ACCEPTABLE","WEAK"] },
-            { label: "Risk execution",     field: "riskExecutionRating",     opts: ["FLAWLESS","GOOD","ACCEPTABLE","POOR"] },
-            { label: "Discipline",         field: "disciplineRating",        opts: ["PERFECT_WAIT","MINOR_RUSH","IMPATIENT","FORCED"] },
-          ].map(({ label, field, opts }) => (
-            <div key={field} className="flex gap-3 items-center py-2 border-b last:border-0">
-              <span className="text-xs text-muted-foreground w-32 shrink-0">{label}</span>
-              <div className="flex flex-wrap gap-1.5">
-                {opts.map((v) => (
-                  <Pill key={v} active={f[field] === v} onClick={() => u(field, v)}>{v.replace(/_/g, " ")}</Pill>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Step: Reflection ─────────────────────────────────────────────────────────
-
-function StepReflection({ f, u }: { f: any; u: (k: string, v: any) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <SectionLabel>Why did you enter?</SectionLabel>
-        <RichTextEditor value={f.whyEntered} onChange={(v) => u("whyEntered", v)}
-          placeholder="Describe the setup, what you saw, why you pulled the trigger…" rows={3} />
-      </div>
-
-      <div className="space-y-2">
-        <CheckRow id="playedAsExpected" label="Move played out as expected" checked={f.playedAsExpected} onChange={(v) => u("playedAsExpected", v)} />
-      </div>
-
-      <div className="space-y-2">
-        <SectionLabel>What went right / wrong?</SectionLabel>
-        <RichTextEditor value={f.whatWentRight}  onChange={(v) => u("whatWentRight", v)}  placeholder="What you did well…" rows={2} />
-        <RichTextEditor value={f.whatWentWrong}  onChange={(v) => u("whatWentWrong", v)}  placeholder="What went wrong or could be better…" rows={2} />
-      </div>
-
-      <div className="space-y-2">
-        <SectionLabel>Institutional lessons</SectionLabel>
-        <RichTextEditor value={f.institutionalLessons} onChange={(v) => u("institutionalLessons", v)}
-          placeholder="What did institutions do? What did you learn about their behaviour?" rows={2} />
-      </div>
-
-      <div className="space-y-3">
-        <SectionLabel>Rule adherence</SectionLabel>
-        <div className="space-y-2">
-          <CheckRow id="followedTrinity"       label="Followed the Trinity"             checked={f.followedTrinity}       onChange={(v) => u("followedTrinity", v)} />
-          <CheckRow id="correctKillzone"       label="Used correct Killzone"            checked={f.correctKillzone}       onChange={(v) => u("correctKillzone", v)} />
-          <CheckRow id="waitedForInducement"   label="Waited for clear inducement"      checked={f.waitedForInducement}   onChange={(v) => u("waitedForInducement", v)} />
-          <CheckRow id="respectedHTFNarrative" label="Respected HTF Narrative"          checked={f.respectedHTFNarrative} onChange={(v) => u("respectedHTFNarrative", v)} />
-          <CheckRow id="managedRiskPerPlan"    label="Managed risk per plan"            checked={f.managedRiskPerPlan}    onChange={(v) => u("managedRiskPerPlan", v)} />
-        </div>
-        {!f.followedTrinity && (
-          <FlatTextarea value={f.trinityViolationExplanation} onChange={(v) => u("trinityViolationExplanation", v)}
-            placeholder="Explain the Trinity violation…" rows={2} />
-        )}
-      </div>
-
-      <SliderRow label="Discipline score" value={f.disciplineScore} onChange={(v) => u("disciplineScore", v)} />
-
-      <div className="space-y-2">
-        <SectionLabel>Screenshots</SectionLabel>
-        <ScreenshotUpload value={f.screenshots} onChange={(ids) => u("screenshots", ids)} maxFiles={5} />
-      </div>
-    </div>
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
+import { PageShell, StatInline } from "@/components/ui/page-shell";
+import { ContentCard } from "@/components/ui/content-card";
+import { CaptureDropzone } from "@/components/CaptureDropzone";
+import { PriceInput } from "@/components/PriceInput";
+import type { TradeCapture } from "@/lib/review-stats";
+import { COMMON_INSTRUMENTS } from "@/lib/instrument-utils";
+import { calculatePnlPreview, calculateRiskReward, calculateStopLossPips } from "@/lib/trade-calculations";
 
 export default function NewTradePage() {
   const router = useRouter();
-  const createTrade = useMutation(api.trades.create);
-  const accounts = useQuery(api.accounts.list) as { _id: string; name: string }[] | undefined;
+  const searchParams = useSearchParams();
+  const fullLog = searchParams.get("mode") === "full";
 
-  const [step, setStep] = useState(0);
-  const [f, setF] = useState({
-    accountId: "", instrument: "EUR/USD", direction: "LONG" as "LONG" | "SHORT",
-    entryPrice: "", exitPrice: "", positionSize: "0.01", commission: "0",
-    environment: "DEMO" as "BACKTESTING" | "DEMO" | "LIVE",
-    dailyBias: "NEUTRAL" as "BULLISH" | "BEARISH" | "NEUTRAL",
-    externalStructure: "", majorLiquidityPools: "", internalStructure: "",
-    currentRange: "", minorPushStatus: "",
-    session: "LONDON" as "ASIA" | "LONDON" | "NEW_YORK" | "OTHER",
-    isInKillzone: true,
-    poiType: "EXTREME" as "EXTREME" | "DECISIONAL",
-    poiQuality: [] as string[], poiDescription: "", gapSize: "",
-    inducementResting: "", inducementType: "", distanceFromPoi: "",
-    liquidityPoolDescription: "", cleanBreak: false, breakSize: "",
-    trapSwept: "NO" as "YES" | "NO" | "PARTIAL",
-    trapType: "", trapLocation: "", trapTappedCount: "", trapCleanliness: "",
-    liquidityEngineering: "", liquidityTappedCount: "", retailBehavior: "",
-    missingInducement: false, ltfEntryTimeframe: "5M", smcType: "",
-    smsAfterTrap: false, bmsPattern: "", bmsConfidence: "5",
-    rtoApplicable: false, rtoDistance: "", entryConfidence: "5",
-    tradeModel: "CONTINUATION" as "CONTINUATION" | "REVERSAL",
-    narrativeAlignment: true, tradingWithMainPush: true, noNarrativeMisalignment: true,
-    clearLiquidityEngineering: "UNCLEAR", institutionsReasoned: false,
-    poiMitigationStatus: "UNMITIGATED" as "UNMITIGATED" | "MITIGATED_ONCE" | "WEAKENED",
-    approachDynamics: "",
-    stopLossPrice: "", stopLossPlacement: "IFC_ABOVE", stopLossPips: "5",
-    stopLossQuality: "CLEAN", riskAmount: "10", riskPercentage: "1",
-    target1RR: "3", target2RR: "10", target1Price: "", target2Price: "",
-    timeInTradeMinutes: "", maxProfitReached: "", maxDrawdown: "",
-    target1Hit: false, target1HitPrice: "", stopMovedToBE: false, timeToTarget1: "",
-    target2Status: "", target2ClosedAt: "", finalRR: "", timeToClose: "",
-    breakEvenStopsMoved: false, manualExit: false, manualExitReason: "",
-    manualExitAligned: false, tradeClosureReason: "OPEN",
-    pnl: "", pnlPercentage: "", winLossStatus: "BREAK_EVEN" as "WIN" | "LOSS" | "BREAK_EVEN",
-    tradeQualityScore: "5", poiQualityRating: "ACCEPTABLE",
-    inducementQualityRating: "CLEAR", trinityAlignmentRating: "ACCEPTABLE",
-    riskExecutionRating: "GOOD", disciplineRating: "MINOR_RUSH",
-    whyEntered: "", playedAsExpected: true, expansionDescription: "",
-    surpriseDescription: "", whatWentWrong: "", whatWentRight: "",
-    institutionalLessons: "", howAffectsNext: "",
-    followedTrinity: true, trinityViolationExplanation: "",
-    correctKillzone: true, respectedHTFNarrative: true,
-    waitedForInducement: true, managedRiskPerPlan: true,
-    disciplineScore: "5", screenshots: [] as Id<"_storage">[],
+  const createTrade = useMutation(api.trades.create);
+  const accounts = useQuery(api.accounts.list);
+  const todayBias = useQuery(api.dailyBias.getByDate, {
+    date: new Date().toISOString().split("T")[0],
   });
 
-  const u = (key: string, value: any) => setF((prev) => ({ ...prev, [key]: value }));
+  const [captures, setCaptures] = useState<TradeCapture[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    instrument: todayBias?.bestInstrument ?? "EUR/USD",
+    direction: "LONG" as "LONG" | "SHORT",
+    session: "LONDON" as "ASIA" | "LONDON" | "NEW_YORK" | "OTHER",
+    environment: "LIVE" as "BACKTESTING" | "DEMO" | "LIVE",
+    entryPrice: "",
+    exitPrice: "",
+    stopLossPrice: "",
+    positionSize: "1",
+    commission: "0",
+    riskAmount: "100",
+    whyEntered: "",
+    winLossStatus: "WIN" as "WIN" | "LOSS" | "BREAK_EVEN",
+  });
 
-  const handleSave = async (partial = false) => {
-    if (!partial && !isComplete(f)) {
-      toast.warning("Fill required fields: instrument, direction, entry, SL, risk amount.");
+  const u = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const levelChips = useMemo(() => {
+    if (!todayBias) return [];
+    const chips: { label: string; value: number }[] = [];
+    if (todayBias.asiaHigh) chips.push({ label: "Asia H", value: todayBias.asiaHigh });
+    if (todayBias.asiaLow) chips.push({ label: "Asia L", value: todayBias.asiaLow });
+    if (todayBias.previousDayHigh) chips.push({ label: "PDH", value: todayBias.previousDayHigh });
+    if (todayBias.previousDayLow) chips.push({ label: "PDL", value: todayBias.previousDayLow });
+    return chips;
+  }, [todayBias]);
+
+  const entry = Number(form.entryPrice) || 0;
+  const exit = Number(form.exitPrice) || 0;
+  const sl = Number(form.stopLossPrice) || 0;
+  const size = Number(form.positionSize) || 1;
+  const pnlPreview = entry && exit ? calculatePnlPreview(entry, exit, form.direction, size, Number(form.commission)) : null;
+  const rrPreview = entry && sl && exit ? calculateRiskReward(entry, sl, exit, form.direction) : null;
+  const slPips = entry && sl ? calculateStopLossPips(entry, sl, form.instrument) : null;
+
+  const handleSave = async () => {
+    if (!form.entryPrice || !form.stopLossPrice) {
+      toast.error("Entry and stop loss required");
       return;
     }
+    setSaving(true);
     try {
-      await createTrade({
-        accountId: f.accountId && f.accountId !== "__none__" ? f.accountId as Id<"accounts"> : undefined,
-        instrument: f.instrument, direction: f.direction,
-        entryPrice: Number(f.entryPrice),
-        exitPrice: f.exitPrice ? Number(f.exitPrice) : undefined,
-        positionSize: Number(f.positionSize), commission: Number(f.commission),
-        environment: f.environment, dailyBias: f.dailyBias,
-        externalStructure: f.externalStructure, majorLiquidityPools: f.majorLiquidityPools,
-        internalStructure: f.internalStructure, currentRange: f.currentRange,
-        minorPushStatus: f.minorPushStatus, session: f.session,
-        isInKillzone: f.isInKillzone, poiType: f.poiType, poiQuality: f.poiQuality,
-        poiDescription: f.poiDescription || undefined,
-        gapSize: f.gapSize ? Number(f.gapSize) : undefined,
-        inducementResting: f.inducementResting || undefined,
-        inducementType: f.inducementType || undefined,
-        distanceFromPoi: f.distanceFromPoi ? Number(f.distanceFromPoi) : undefined,
-        liquidityPoolDescription: f.liquidityPoolDescription || undefined,
-        cleanBreak: f.cleanBreak || undefined,
-        breakSize: f.breakSize ? Number(f.breakSize) : undefined,
-        trapSwept: f.trapSwept, trapType: f.trapType || undefined,
-        trapLocation: f.trapLocation ? Number(f.trapLocation) : undefined,
-        trapTappedCount: f.trapTappedCount ? Number(f.trapTappedCount) : undefined,
-        trapCleanliness: f.trapCleanliness || undefined,
-        liquidityEngineering: f.liquidityEngineering || undefined,
-        liquidityTappedCount: f.liquidityTappedCount ? Number(f.liquidityTappedCount) : undefined,
-        retailBehavior: f.retailBehavior || undefined,
-        missingInducement: f.missingInducement,
-        ltfEntryTimeframe: f.ltfEntryTimeframe || undefined,
-        smcType: f.smcType || undefined, smsAfterTrap: f.smsAfterTrap,
-        bmsPattern: f.bmsPattern || undefined,
-        bmsConfidence: Number(f.bmsConfidence), rtoApplicable: f.rtoApplicable,
-        rtoDistance: f.rtoDistance ? Number(f.rtoDistance) : undefined,
-        entryConfidence: Number(f.entryConfidence),
-        tradeModel: f.tradeModel, narrativeAlignment: f.narrativeAlignment,
-        tradingWithMainPush: f.tradingWithMainPush,
-        noNarrativeMisalignment: f.noNarrativeMisalignment,
-        clearLiquidityEngineering: f.clearLiquidityEngineering || undefined,
-        institutionsReasoned: f.institutionsReasoned || undefined,
-        poiMitigationStatus: f.poiMitigationStatus,
-        approachDynamics: f.approachDynamics || undefined,
-        stopLossPrice: Number(f.stopLossPrice),
-        stopLossPlacement: f.stopLossPlacement,
-        stopLossPips: Number(f.stopLossPips),
-        stopLossQuality: f.stopLossQuality,
-        riskAmount: Number(f.riskAmount), riskPercentage: Number(f.riskPercentage),
-        target1RR: Number(f.target1RR), target2RR: Number(f.target2RR),
-        target1Price: f.target1Price ? Number(f.target1Price) : undefined,
-        target2Price: f.target2Price ? Number(f.target2Price) : undefined,
-        timeInTradeMinutes: f.timeInTradeMinutes ? Number(f.timeInTradeMinutes) : undefined,
-        maxProfitReached: f.maxProfitReached ? Number(f.maxProfitReached) : undefined,
-        maxDrawdown: f.maxDrawdown ? Number(f.maxDrawdown) : undefined,
-        target1Hit: f.target1Hit || undefined,
-        target1HitPrice: f.target1HitPrice ? Number(f.target1HitPrice) : undefined,
-        stopMovedToBE: f.stopMovedToBE || undefined,
-        timeToTarget1: f.timeToTarget1 ? Number(f.timeToTarget1) : undefined,
-        target2Status: f.target2Status || undefined,
-        target2ClosedAt: f.target2ClosedAt ? Number(f.target2ClosedAt) : undefined,
-        finalRR: f.finalRR ? Number(f.finalRR) : undefined,
-        timeToClose: f.timeToClose ? Number(f.timeToClose) : undefined,
-        breakEvenStopsMoved: f.breakEvenStopsMoved || undefined,
-        manualExit: f.manualExit || undefined,
-        manualExitReason: f.manualExitReason || undefined,
-        manualExitAligned: f.manualExitAligned || undefined,
-        tradeClosureReason: f.tradeClosureReason,
-        pnl: f.pnl ? Number(f.pnl) : undefined,
-        pnlPercentage: f.pnlPercentage ? Number(f.pnlPercentage) : undefined,
-        winLossStatus: f.winLossStatus,
-        tradeQualityScore: Number(f.tradeQualityScore),
-        poiQualityRating: f.poiQualityRating,
-        inducementQualityRating: f.inducementQualityRating,
-        trinityAlignmentRating: f.trinityAlignmentRating,
-        riskExecutionRating: f.riskExecutionRating,
-        disciplineRating: f.disciplineRating,
-        whyEntered: f.whyEntered || undefined,
-        playedAsExpected: f.playedAsExpected,
-        expansionDescription: f.expansionDescription || undefined,
-        surpriseDescription: f.surpriseDescription || undefined,
-        whatWentWrong: f.whatWentWrong || undefined,
-        whatWentRight: f.whatWentRight || undefined,
-        institutionalLessons: f.institutionalLessons || undefined,
-        howAffectsNext: f.howAffectsNext || undefined,
-        followedTrinity: f.followedTrinity,
-        trinityViolationExplanation: f.trinityViolationExplanation || undefined,
-        correctKillzone: f.correctKillzone, respectedHTFNarrative: f.respectedHTFNarrative,
-        waitedForInducement: f.waitedForInducement, managedRiskPerPlan: f.managedRiskPerPlan,
-        disciplineScore: Number(f.disciplineScore),
-        screenshots: f.screenshots.length > 0 ? f.screenshots : undefined,
+      const id = await createTrade({
+        accountId: accounts?.[0]?._id,
+        instrument: form.instrument,
+        direction: form.direction,
+        entryPrice: Number(form.entryPrice),
+        exitPrice: form.exitPrice ? Number(form.exitPrice) : undefined,
+        positionSize: Number(form.positionSize),
+        commission: Number(form.commission),
+        environment: form.environment,
+        dailyBias: todayBias?.currentDailyBias ?? "NEUTRAL",
+        externalStructure: "",
+        majorLiquidityPools: "",
+        internalStructure: "",
+        currentRange: "",
+        minorPushStatus: "",
+        session: form.session,
+        isInKillzone: true,
+        poiType: "DECISIONAL",
+        poiQuality: [],
+        trapSwept: "NO",
+        missingInducement: false,
+        smsAfterTrap: true,
+        rtoApplicable: false,
+        tradeModel: "CONTINUATION",
+        narrativeAlignment: true,
+        tradingWithMainPush: true,
+        noNarrativeMisalignment: true,
+        poiMitigationStatus: "UNMITIGATED",
+        stopLossPrice: Number(form.stopLossPrice),
+        stopLossPlacement: "",
+        stopLossPips: slPips ?? 0,
+        stopLossQuality: "",
+        riskAmount: Number(form.riskAmount),
+        riskPercentage: 1,
+        target1RR: rrPreview ?? 1,
+        target2RR: 2,
+        tradeClosureReason: "Manual",
+        pnl: pnlPreview ?? undefined,
+        winLossStatus: form.winLossStatus,
+        finalRR: rrPreview ?? undefined,
+        whyEntered: form.whyEntered || undefined,
+        captures: captures.length ? captures : undefined,
+        screenshots: captures.map((c) => c.storageId),
       });
-      toast.success(partial ? "Progress saved!" : "Trade logged!");
-      router.push("/trades");
+      toast.success("Trade saved");
+      router.push(`/trades/${id}`);
     } catch {
       toast.error("Failed to save trade");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const isLast = step === STEPS.length - 1;
-
-  const panels = [
-    <StepBasics   key="basics"   f={f} u={u} accounts={accounts || []} />,
-    <StepContext  key="context"  f={f} u={u} />,
-    <StepSetup    key="setup"    f={f} u={u} />,
-    <StepRisk     key="risk"     f={f} u={u} />,
-    <StepOutcome  key="outcome"  f={f} u={u} />,
-    <StepReflection key="reflection" f={f} u={u} />,
-  ];
+  if (fullLog) {
+    return (
+      <PageShell title="Full Log" subtitle="Complete WWA detail">
+        <p className="text-sm text-muted-foreground">
+          Full wizard preserved at{" "}
+          <Link href="/trades/new" className="underline">Quick Log</Link>.
+          Use Quick Log for daily journaling; expand fields here as needed in a future pass.
+        </p>
+        <Link href="/trades/new"><Button variant="outline" className="mt-4 rounded-md">Back to Quick Log</Button></Link>
+      </PageShell>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href="/trades"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Log Trade</h1>
-            <p className="text-xs text-muted-foreground">system framework</p>
-          </div>
+    <PageShell
+      title="Quick Log"
+      subtitle="Paste charts first, one-line hook, prices — done in under a minute"
+      maxWidth="lg"
+      actions={
+        <Link href="/trades" className="text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="mr-1 inline h-4 w-4" /> Trades
+        </Link>
+      }
+    >
+      <CaptureDropzone value={captures} onChange={setCaptures} />
+
+      <ContentCard className="mt-4 space-y-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">One-line hook</Label>
+          <input
+            value={form.whyEntered}
+            onChange={(e) => u("whyEntered", e.target.value)}
+            placeholder="Short EURUSD at London OB after inducement…"
+            className="mt-1 w-full rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+          />
         </div>
-        <Button variant="outline" size="sm" onClick={() => handleSave(true)}>
-          Save progress
-        </Button>
-      </div>
 
-      {/* Step rail */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => {
-          const Icon = s.icon;
-          const done = i < step;
-          const active = i === step;
-          return (
-            <button key={s.id} type="button" onClick={() => setStep(i)}
-              className={cn(
-                "flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-150",
-                active ? "bg-foreground text-background" : done ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}>
-              {done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Icon className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{s.label}</span>
-            </button>
-          );
-        })}
-        <div className="flex-1 h-px bg-border ml-1" />
-        <span className="text-xs text-muted-foreground tabular-nums">{step + 1}/{STEPS.length}</span>
-      </div>
-
-      {/* Step panel */}
-      <div className="rounded-2xl border border-zinc-100 bg-white dark:border-zinc-800 dark:bg-zinc-900 p-6 min-h-[380px]">
-        <div className="mb-6">
-          <h2 className="text-base font-semibold">{STEPS[step].label}</h2>
-          <p className="text-sm text-muted-foreground">{STEPS[step].description}</p>
+        <div className="flex flex-wrap gap-2">
+          {COMMON_INSTRUMENTS.map((inst) => (
+            <Button key={inst} type="button" size="sm" variant={form.instrument === inst ? "default" : "outline"} onClick={() => u("instrument", inst)}>
+              {inst}
+            </Button>
+          ))}
         </div>
-        {panels[step]}
-      </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button variant="outline" size="sm"
-          onClick={() => step === 0 ? router.push("/trades") : setStep(step - 1)}>
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          {step === 0 ? "Cancel" : "Back"}
-        </Button>
-        {isLast ? (
-          <Button size="sm" onClick={() => handleSave(false)} className="gap-2">
-            <Save className="h-3.5 w-3.5" />Save Trade
-          </Button>
-        ) : (
-          <Button size="sm" onClick={() => setStep(step + 1)}>
-            Next <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {(["LONG", "SHORT"] as const).map((d) => (
+            <Button key={d} type="button" size="sm" variant={form.direction === d ? "default" : "outline"} onClick={() => u("direction", d)}>{d}</Button>
+          ))}
+          {(["ASIA", "LONDON", "NEW_YORK"] as const).map((s) => (
+            <Button key={s} type="button" size="sm" variant={form.session === s ? "default" : "outline"} onClick={() => u("session", s)}>{s}</Button>
+          ))}
+        </div>
+
+        {todayBias && (
+          <p className="text-xs text-muted-foreground">
+            From today&apos;s plan: {todayBias.currentDailyBias} · {todayBias.bestInstrument ?? "—"}
+          </p>
         )}
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <PriceInput label="Entry" value={form.entryPrice} onChange={(v) => u("entryPrice", v)} instrument={form.instrument} levelChips={levelChips} />
+          <PriceInput label="Stop loss" value={form.stopLossPrice} onChange={(v) => u("stopLossPrice", v)} instrument={form.instrument} referencePrice={entry || undefined} levelChips={levelChips} />
+          <PriceInput label="Exit" value={form.exitPrice} onChange={(v) => u("exitPrice", v)} instrument={form.instrument} referencePrice={entry || undefined} />
+        </div>
+
+        <div className="flex flex-wrap gap-4 text-sm">
+          {pnlPreview !== null && (
+            <StatInline label="P&L preview" value={`${pnlPreview >= 0 ? "+" : ""}$${pnlPreview.toFixed(2)}`} valueClassName={pnlPreview >= 0 ? "text-emerald-600" : "text-red-500"} />
+          )}
+          {rrPreview !== null && <StatInline label="R:R" value={rrPreview.toFixed(2)} />}
+          {slPips !== null && <StatInline label="SL" value={`${slPips.toFixed(1)} pips`} />}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {(["WIN", "LOSS", "BREAK_EVEN"] as const).map((s) => (
+            <Button key={s} type="button" size="sm" variant={form.winLossStatus === s ? "default" : "outline"} onClick={() => u("winLossStatus", s)}>{s}</Button>
+          ))}
+        </div>
+      </ContentCard>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={() => void handleSave()} disabled={saving} className="rounded-md">
+          <Save className="h-4 w-4" /> Save trade
+        </Button>
+        <Link href="/trades/new?mode=full">
+          <Button variant="outline" className="rounded-md">Add full WWA detail →</Button>
+        </Link>
       </div>
-    </div>
+    </PageShell>
   );
 }
