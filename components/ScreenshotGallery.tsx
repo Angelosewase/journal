@@ -49,7 +49,7 @@ function ScreenshotItem({
   );
 }
 
-function ScreenshotViewer({
+export function ScreenshotViewer({
   storageIds,
   initialIndex,
   onClose,

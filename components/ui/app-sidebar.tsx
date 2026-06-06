@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   TrendingUp,
+  StickyNote,
   Wallet,
 } from "lucide-react";
 import { NavMain } from "@/components/ui/nav-main";
@@ -41,6 +42,11 @@ const data = {
       title: "Trade Log",
       url: "/trades",
       icon: ClipboardList,
+    },
+    {
+      title: "Daily Notes",
+      url: "/daily-notes",
+      icon: StickyNote,
     },
     {
       title: "Planning",

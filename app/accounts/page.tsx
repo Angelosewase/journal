@@ -180,7 +180,7 @@ export default function AccountsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8 pb-16">
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-8 pb-16">
 
         {/* Page header */}
         <div className="flex items-center justify-between gap-4">

@@ -23,11 +23,11 @@ function Thumbnail({ storageId }: Readonly<{ storageId?: Id<"_storage"> }>) {
   );
 
   if (!storageId) {
-    return <EmptyPlaceholder className="h-[120px] w-[120px] shrink-0 rounded-lg" />;
+    return <EmptyPlaceholder className="h-[120px] w-[120px] shrink-0 rounded-xl" />;
   }
   if (!url) {
     return (
-      <div className="flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-[10px] text-muted-foreground">
+      <div className="flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-xl border border-zinc-100 bg-zinc-50 text-[10px] text-zinc-400 dark:border-zinc-800 dark:bg-zinc-800/50">
         …
       </div>
     );
@@ -36,7 +36,7 @@ function Thumbnail({ storageId }: Readonly<{ storageId?: Id<"_storage"> }>) {
     <img
       src={url}
       alt=""
-      className="h-[120px] w-[120px] shrink-0 rounded-lg border border-border/60 object-cover"
+      className="h-[120px] w-[120px] shrink-0 rounded-xl border border-zinc-100 object-cover dark:border-zinc-800"
     />
   );
 }
@@ -55,7 +55,7 @@ export function TradeCard({ trade, compact }: TradeCardProps) {
     <Link href={`/trades/${trade._id}`}>
       <ContentCard
         className={cn(
-          "flex gap-4 transition-colors hover:bg-muted/30",
+          "flex gap-4 mb-1 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40",
           compact && "flex-col",
         )}
         padding="sm"

@@ -3,10 +3,11 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Plus, Sun, Moon, ArrowRight, ChevronRight, CalendarDays } from "lucide-react";
+import { Plus, Sun, Moon, ArrowRight, ChevronRight, CalendarDays, StickyNote } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ContentCard } from "@/components/ui/content-card";
+import { NarrativeBlock } from "@/components/ui/narrative-block";
 import { PageShell, StatInline } from "@/components/ui/page-shell";
 import { TradeCard } from "@/components/TradeCard";
 import { computeDayReviewStats, deriveDayReviewFields } from "@/lib/review-stats";
@@ -22,8 +23,8 @@ function MorningThumb({ storageId }: Readonly<{ storageId?: Id<"_storage"> }>) {
 export default function TodayPage() {
   const trades = useQuery(api.trades.list);
   const dailyBiases = useQuery(api.dailyBias.list);
-
   const today = new Date().toISOString().split("T")[0];
+  const todayNote = useQuery(api.dailyNotes.getByDate, { date: today });
   const todayBias = dailyBiases?.find((b) => b.date === today);
   const todayTrades = trades?.filter(
     (t) => new Date(t.createdAt).toISOString().split("T")[0] === today,
@@ -39,7 +40,6 @@ export default function TodayPage() {
     <PageShell
       title={fullDate}
       subtitle={dayName}
-      maxWidth="xl"
       actions={
         <div className="flex gap-2">
           <Link href={`/calendar/${today}`}>
@@ -53,11 +53,21 @@ export default function TodayPage() {
         </div>
       }
     >
-      <ContentCard>
-        <div className="flex flex-wrap gap-6">
-          <StatInline label="Trades" value={stats.totalTrades} />
-          <StatInline label="P&L" value={`${stats.totalPnl >= 0 ? "+" : ""}$${stats.totalPnl.toFixed(2)}`} valueClassName={stats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
-          <StatInline label="Win rate" value={`${stats.winRate}%`} />
+      <ContentCard padding="none" className="px-6 py-5">
+        <div className="grid grid-cols-1 divide-y divide-zinc-100 dark:divide-zinc-800 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="py-4 sm:py-0 sm:pr-6">
+            <StatInline label="Trades" value={stats.totalTrades} />
+          </div>
+          <div className="py-4 sm:px-6 sm:py-0">
+            <StatInline
+              label="P&L"
+              value={`${stats.totalPnl >= 0 ? "+" : ""}$${stats.totalPnl.toFixed(2)}`}
+              valueClassName={stats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"}
+            />
+          </div>
+          <div className="pt-4 sm:pl-6 sm:pt-0">
+            <StatInline label="Win rate" value={`${stats.winRate}%`} />
+          </div>
         </div>
       </ContentCard>
 
@@ -96,7 +106,7 @@ export default function TodayPage() {
           {todayBias?.actualMovement ? (
             <div className="space-y-2 text-sm">
               <p>Actual: <span className="font-medium">{todayBias.actualMovement}</span></p>
-              <div className="flex gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <StatInline label="Worked" value={derived.tradesWorked} />
                 <StatInline label="Failed" value={derived.tradesFailed} />
                 <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
@@ -107,6 +117,38 @@ export default function TodayPage() {
           )}
         </ContentCard>
       </div>
+
+      <ContentCard>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">Today&apos;s notes</p>
+          </div>
+          <Link
+            href={`/daily-notes?date=${today}`}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            {todayNote ? "View full notes" : "Add notes"} <ChevronRight className="inline h-3 w-3" />
+          </Link>
+        </div>
+        {todayNote ? (
+          <>
+            <NarrativeBlock content={todayNote.notes} className="line-clamp-3" />
+            {todayNote.screenshots && todayNote.screenshots.length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {todayNote.screenshots.length} screenshot{todayNote.screenshots.length > 1 ? "s" : ""}
+              </p>
+            )}
+          </>
+        ) : (
+          <Link
+            href={`/daily-notes?date=${today}`}
+            className="text-sm text-muted-foreground underline"
+          >
+            Jot down observations, lessons, or context for today
+          </Link>
+        )}
+      </ContentCard>
 
       <ContentCard>
         <div className="mb-3 flex items-center justify-between">

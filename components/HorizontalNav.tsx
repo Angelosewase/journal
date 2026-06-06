@@ -32,6 +32,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: Wallet },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/trades", label: "Trade Log", icon: ClipboardList },
+  { href: "/daily-notes", label: "Daily Notes", icon: StickyNote },
   { href: "/weekly", label: "Planning", icon: BarChart3 },
   { href: "/statistics", label: "Statistics", icon: TrendingUp },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -103,8 +104,8 @@ export function HorizontalNav() {
                     <button
                       className={`flex items-center gap-1.5 h-10 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                         isActive
-                          ? "bg-primary text-white dark:text-white shadow-sm"
-                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-white/60 dark:hover:bg-zinc-700/60"
+                          ? "bg-zinc-900 text-white shadow-sm dark:bg-zinc-50 dark:text-zinc-900"
+                          : "text-zinc-500 hover:bg-white/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-700/60 dark:hover:text-zinc-100"
                       }`}
                     >
                       <item.icon className="h-3.5 w-3.5" />
@@ -119,7 +120,7 @@ export function HorizontalNav() {
             <div className="flex items-center gap-1.5 pr-1 shrink-0">
               {/* Add Trade */}
               <Link href="/trades/new" className="hidden sm:block">
-                <button className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-primary  text-white text-sm font-medium shadow-sm transition-colors">
+                <button className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700">
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Trade</span>
                 </button>

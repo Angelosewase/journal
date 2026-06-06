@@ -630,7 +630,7 @@ export default function EveningReviewPage() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-6 py-8 pb-16">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -656,96 +656,104 @@ export default function EveningReviewPage() {
         )}
       </div>
 
-      {isViewMode ? (
-        <EveningViewCard b={todayBias} />
-      ) : (
-        <>
-          {/* Step rail */}
-          <div className="flex items-center gap-1">
-            {STEPS.map((step, i) => {
-              const Icon = step.icon;
-              const done = i < currentStep;
-              const active = i === currentStep;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setCurrentStep(i)}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150",
-                    active ? "bg-foreground text-background" : done ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                  )}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)] lg:items-start">
+        {/* Left — dynamic content */}
+        <div className="min-w-0 space-y-6">
+          {isViewMode ? (
+            <EveningViewCard b={todayBias} />
+          ) : (
+            <>
+              {/* Step rail */}
+              <div className="flex items-center gap-1">
+                {STEPS.map((step, i) => {
+                  const Icon = step.icon;
+                  const done = i < currentStep;
+                  const active = i === currentStep;
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      onClick={() => setCurrentStep(i)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150",
+                        active ? "bg-foreground text-background" : done ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {done
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        : <Icon className="h-3.5 w-3.5" />}
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </button>
+                  );
+                })}
+                <div className="flex-1 h-px bg-border ml-2" />
+                <span className="text-xs text-muted-foreground tabular-nums">{currentStep + 1}/{STEPS.length}</span>
+              </div>
+
+              <ContentCard>
+                <SectionHeading>Today&apos;s trade stats (live)</SectionHeading>
+                <div className="mt-2 flex flex-wrap gap-4">
+                  <StatInline label="P&L" value={`$${dayStats.totalPnl.toFixed(2)}`} valueClassName={dayStats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
+                  <StatInline label="Trades" value={derived.tradesTaken} />
+                  <StatInline label="Worked" value={derived.tradesWorked} />
+                  <StatInline label="Failed" value={derived.tradesFailed} />
+                  <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+                </div>
+              </ContentCard>
+
+              {/* Step content */}
+              <div className="rounded-2xl border bg-card p-6 min-h-[360px]">
+                <div className="mb-6">
+                  <h2 className="text-base font-semibold">{STEPS[currentStep].label}</h2>
+                  <p className="text-sm text-muted-foreground">{STEPS[currentStep].description}</p>
+                </div>
+                {stepComponents[currentStep]}
+              </div>
+
+              {/* Navigation */}
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    currentStep === 0
+                      ? isEditing ? setIsEditing(false) : router.push("/")
+                      : setCurrentStep(currentStep - 1)
+                  }
                 >
-                  {done
-                    ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    : <Icon className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">{step.label}</span>
-                </button>
-              );
-            })}
-            <div className="flex-1 h-px bg-border ml-2" />
-            <span className="text-xs text-muted-foreground tabular-nums">{currentStep + 1}/{STEPS.length}</span>
-          </div>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  {currentStep === 0 ? "Cancel" : "Back"}
+                </Button>
 
-          <ContentCard>
-            <SectionHeading>Today&apos;s trade stats (live)</SectionHeading>
-            <div className="mt-2 flex flex-wrap gap-4">
-              <StatInline label="P&L" value={`$${dayStats.totalPnl.toFixed(2)}`} valueClassName={dayStats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
-              <StatInline label="Trades" value={derived.tradesTaken} />
-              <StatInline label="Worked" value={derived.tradesWorked} />
-              <StatInline label="Failed" value={derived.tradesFailed} />
-              <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
-            </div>
-          </ContentCard>
+                {isLastStep ? (
+                  <Button size="sm" onClick={handleSubmit} className="gap-2">
+                    <Save className="h-3.5 w-3.5" />
+                    {todayBias.actualMovement ? "Update" : "Save"} Review
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={() => setCurrentStep(currentStep + 1)}>
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
+        {/* Right — static context */}
+        <aside className="lg:sticky lg:top-8 lg:self-start">
           <ContextBlock
+            variant="sidebar"
+            mode={isViewMode ? "read" : "edit"}
             title="Evening context"
-            notes={eveningContextNotes}
-            onNotesChange={setEveningContextNotes}
-            screenshots={eveningScreenshots}
-            onScreenshotsChange={setEveningScreenshots}
-            collapsible
-            defaultExpanded
+            notes={isViewMode ? (todayBias.eveningContextNotes ?? "") : eveningContextNotes}
+            onNotesChange={isViewMode ? undefined : setEveningContextNotes}
+            screenshots={isViewMode ? (todayBias.eveningScreenshots ?? []) : eveningScreenshots}
+            onScreenshotsChange={isViewMode ? undefined : setEveningScreenshots}
           />
-
-          {/* Step content */}
-          <div className="rounded-2xl border bg-card p-6 min-h-[360px]">
-            <div className="mb-6">
-              <h2 className="text-base font-semibold">{STEPS[currentStep].label}</h2>
-              <p className="text-sm text-muted-foreground">{STEPS[currentStep].description}</p>
-            </div>
-            {stepComponents[currentStep]}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                currentStep === 0
-                  ? isEditing ? setIsEditing(false) : router.push("/")
-                  : setCurrentStep(currentStep - 1)
-              }
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              {currentStep === 0 ? "Cancel" : "Back"}
-            </Button>
-
-            {isLastStep ? (
-              <Button size="sm" onClick={handleSubmit} className="gap-2">
-                <Save className="h-3.5 w-3.5" />
-                {todayBias.actualMovement ? "Update" : "Save"} Review
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => setCurrentStep(currentStep + 1)}>
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            )}
-          </div>
-        </>
-      )}
+        </aside>
+      </div>
 
       {/* Delete dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

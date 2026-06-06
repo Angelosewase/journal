@@ -241,9 +241,41 @@ function generateInsights(stats: Omit<TradeStatistics, "insights">): Insight[] {
         description: "Stay disciplined — don't increase risk just because you're on a hot streak.",
       });
     }
+    if (stats.avgFinalRR >= 2) {
+      insights.push({
+        type: "positive",
+        title: "Strong average R:R",
+        description: `Your average final R:R of ${stats.avgFinalRR.toFixed(2)} means winners are capturing meaningful reward relative to risk.`,
+      });
+    }
+
+    if (stats.target1HitRate >= 50 && stats.total >= 5) {
+      insights.push({
+        type: "positive",
+        title: "Target 1 hit rate is solid",
+        description: `T1 is hit on ${stats.target1HitRate.toFixed(0)}% of trades — your targets are realistic.`,
+      });
+    }
+
+    const killzone = stats.compliance.find((c) => c.label === "Killzone");
+    if (killzone && killzone.total >= 3 && killzone.winRateWhenFollowed - killzone.winRateWhenNot >= 10) {
+      insights.push({
+        type: "neutral",
+        title: "Killzone timing matters",
+        description: `Win rate is ${killzone.winRateWhenFollowed.toFixed(0)}% in killzone vs ${killzone.winRateWhenNot.toFixed(0)}% outside.`,
+      });
+    }
+
+    if (stats.bestInstrument && stats.worstInstrument && stats.bestInstrument.key !== stats.worstInstrument.key) {
+      insights.push({
+        type: stats.bestInstrument.pnl >= 0 ? "positive" : "neutral",
+        title: `${stats.bestInstrument.label} leads your P&L`,
+        description: `${stats.bestInstrument.label}: ${stats.bestInstrument.pnl >= 0 ? "+" : ""}$${stats.bestInstrument.pnl.toFixed(2)} vs ${stats.worstInstrument.label}: $${stats.worstInstrument.pnl.toFixed(2)}.`,
+      });
+    }
   }
 
-  return insights.slice(0, 4);
+  return insights.slice(0, 8);
 }
 
 export function filterTrades(trades: Trade[], filters: TradeFilters): Trade[] {

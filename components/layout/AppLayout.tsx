@@ -19,8 +19,6 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   ChevronRight,
-  Search,
-  Settings,
   Calendar,
   Wallet,
   CalendarDays,
@@ -28,6 +26,7 @@ import {
   StickyNote,
   BarChart3,
   TrendingUp,
+  Settings,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
@@ -61,6 +60,11 @@ const navigationItems = [
       title: "Trade Log",
       url: "/trades",
       icon: ClipboardList,
+    },
+    {
+      title: "Daily Notes",
+      url: "/daily-notes",
+      icon: StickyNote,
     },
     {
       title: "Planning",

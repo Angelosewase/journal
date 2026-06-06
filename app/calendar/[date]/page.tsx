@@ -5,12 +5,13 @@ import { api } from "@/convex/_generated/api";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, StickyNote } from "lucide-react";
 import { PageShell, SectionHeading, StatInline } from "@/components/ui/page-shell";
 import { ContentCard } from "@/components/ui/content-card";
 import { ContextBlock } from "@/components/ContextBlock";
 import { NarrativeBlock } from "@/components/ui/narrative-block";
 import { TradeCard } from "@/components/TradeCard";
+import { ScreenshotGallery } from "@/components/ScreenshotGallery";
 import { computeDayReviewStats, deriveDayReviewFields } from "@/lib/review-stats";
 
 export default function DayTimelinePage() {
@@ -19,6 +20,7 @@ export default function DayTimelinePage() {
 
   const trades = useQuery(api.trades.list);
   const dailyBias = useQuery(api.dailyBias.getByDate, { date: dateStr });
+  const dailyNote = useQuery(api.dailyNotes.getByDate, { date: dateStr });
   const weekStart = getWeekStart(dateStr);
 
   const dayTrades = trades?.filter(
@@ -105,6 +107,32 @@ export default function DayTimelinePage() {
           <div className="space-y-2">{dayTrades.map((t) => <TradeCard key={t._id} trade={t} />)}</div>
         ) : (
           <ContentCard><p className="text-sm text-muted-foreground">No trades this day.</p></ContentCard>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <SectionHeading>Daily notes</SectionHeading>
+          <Link href={`/daily-notes?date=${dateStr}`}>
+            <Button variant="ghost" size="sm">
+              <StickyNote className="mr-1.5 h-3.5 w-3.5" />
+              {dailyNote ? "Edit" : "Add note"}
+            </Button>
+          </Link>
+        </div>
+        {dailyNote ? (
+          <ContentCard>
+            <NarrativeBlock content={dailyNote.notes} className="line-clamp-4" />
+            {dailyNote.screenshots && dailyNote.screenshots.length > 0 && (
+              <div className="mt-4">
+                <ScreenshotGallery storageIds={dailyNote.screenshots} />
+              </div>
+            )}
+          </ContentCard>
+        ) : (
+          <ContentCard>
+            <p className="text-sm text-muted-foreground">No freeform notes for this day.</p>
+          </ContentCard>
         )}
       </section>
 

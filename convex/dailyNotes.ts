@@ -11,11 +11,10 @@ export const list = query({
 export const getByDate = query({
   args: { date: v.string() },
   handler: async (ctx, args) => {
-    const notes = await ctx.db
+    return await ctx.db
       .query("dailyNotes")
-      .filter((q) => q.eq(q.field("date"), args.date))
-      .collect();
-    return notes[0] || null;
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .first();
   },
 });
 

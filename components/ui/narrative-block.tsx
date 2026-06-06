@@ -1,5 +1,6 @@
 import { renderMarkdown } from "@/lib/markdown-render";
 import { cn } from "@/lib/utils";
+import { CategoryLabel } from "@/components/ui/page-shell";
 
 type NarrativeBlockProps = Readonly<{
   title?: string;
@@ -19,16 +20,16 @@ export function NarrativeBlock({
   return (
     <div
       className={cn(
-        "rounded-lg text-sm leading-relaxed text-foreground/90",
-        variant === "callout" && "border-l-2 border-border pl-4 py-1",
+        "rounded-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-300",
+        variant === "callout" && "border-l-2 border-zinc-200 pl-4 py-1 dark:border-zinc-700",
         variant === "default" && "py-1",
         className,
       )}
     >
       {title && (
-        <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {title}
-        </p>
+        <div className="mb-1.5">
+          <CategoryLabel>{title}</CategoryLabel>
+        </div>
       )}
       <div
         className="prose-sm max-w-none [&_a]:underline"

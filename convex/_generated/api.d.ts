@@ -13,6 +13,7 @@ import type * as dailyBias from "../dailyBias.js";
 import type * as dailyNotes from "../dailyNotes.js";
 import type * as migrations from "../migrations.js";
 import type * as trades from "../trades.js";
+import type * as weeklyFundamentalAnalysis from "../weeklyFundamentalAnalysis.js";
 import type * as weeklyGameplans from "../weeklyGameplans.js";
 import type * as weeklyReviews from "../weeklyReviews.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   dailyNotes: typeof dailyNotes;
   migrations: typeof migrations;
   trades: typeof trades;
+  weeklyFundamentalAnalysis: typeof weeklyFundamentalAnalysis;
   weeklyGameplans: typeof weeklyGameplans;
   weeklyReviews: typeof weeklyReviews;
 }>;

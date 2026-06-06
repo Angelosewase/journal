@@ -47,13 +47,13 @@ export function PriceInput({
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">{label}</span>
         {pipHint && <span className="text-[10px] text-muted-foreground">{pipHint} to ref</span>}
       </div>
       <div
         className={cn(
-          "flex items-center gap-1 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5",
-          focused && "ring-1 ring-ring",
+          "flex items-center gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800",
+          focused && "border-zinc-400 dark:border-zinc-600",
         )}
       >
         <input

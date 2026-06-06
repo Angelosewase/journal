@@ -173,14 +173,24 @@ export default function PlanningPage() {
         </div>
       ) : (
         <>
-          <ContentCard>
+          <ContentCard padding="none" className="px-6 py-5">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">This week</p>
-            <div className="mt-3 flex flex-wrap gap-6">
-              <StatInline label="P&L" value={formatPnl(currentStats.totalPnl)} valueClassName={currentStats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
-              <StatInline label="Trades" value={currentStats.totalTrades} />
-              <StatInline label="Win rate" value={`${currentStats.winRate}%`} />
-              <StatInline label="Gameplan" value={currentWeek?.gameplan ? "Done" : "Pending"} />
-              <StatInline label="Review" value={currentWeek?.review ? "Done" : "Pending"} />
+            <div className="mt-4 grid grid-cols-1 divide-y divide-zinc-100 dark:divide-zinc-800 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+              <div className="py-4 sm:py-0 sm:pr-6">
+                <StatInline label="P&L" value={formatPnl(currentStats.totalPnl)} valueClassName={currentStats.totalPnl >= 0 ? "text-emerald-600" : "text-red-500"} />
+              </div>
+              <div className="py-4 sm:px-6 sm:py-0">
+                <StatInline label="Trades" value={currentStats.totalTrades} />
+              </div>
+              <div className="py-4 sm:px-6 sm:py-0">
+                <StatInline label="Win rate" value={`${currentStats.winRate}%`} />
+              </div>
+              <div className="py-4 sm:px-6 sm:py-0">
+                <StatInline label="Gameplan" value={currentWeek?.gameplan ? "Done" : "Pending"} />
+              </div>
+              <div className="pt-4 sm:pl-6 sm:pt-0">
+                <StatInline label="Review" value={currentWeek?.review ? "Done" : "Pending"} />
+              </div>
             </div>
           </ContentCard>
 
