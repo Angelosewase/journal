@@ -161,7 +161,7 @@ export function DailyNotesContent() {
       setScreenshots(toScreenshotItems(existingNote.screenshots));
     } else {
       setNotes("");
-      setScreenshots([]);cle
+      setScreenshots([]);
     }
   };
 
