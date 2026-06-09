@@ -161,7 +161,7 @@ export function DailyNotesContent() {
       setScreenshots(toScreenshotItems(existingNote.screenshots));
     } else {
       setNotes("");
-      setScreenshots([]);
+      setScreenshots([]);cle
     }
   };
 
@@ -241,7 +241,7 @@ export function DailyNotesContent() {
       </div>
 
       {/* Main editor */}
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-zinc-950 max-h-[calc(100vh-3rem)] overflow-y-auto">
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-zinc-100 px-4 dark:border-zinc-800 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex items-center gap-0.5">
