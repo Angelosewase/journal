@@ -66,8 +66,8 @@ function WeekCard({ week, isCurrent }: { week: MergedWeek; isCurrent?: boolean }
   const weekEnd = week.review?.weekEnd ?? week.gameplan?.weekEnd ?? getWeekEnd(week.weekStart);
 
   return (
-    <Link href={`/weekly/${week.weekStart}`} className="mt-2">
-      <ContentCard className={cn("transition-colors hover:bg-muted/30", isCurrent && "ring-1 ring-border")}>
+    <Link href={`/weekly/${week.weekStart}`} className="">
+      <ContentCard className={cn("transition-colors hover:bg-muted/30 mt-1", isCurrent && "ring-1 ring-border")}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
