@@ -53,11 +53,11 @@ export const create = mutation({
     commission: v.number(),
     environment: v.union(v.literal("BACKTESTING"), v.literal("DEMO"), v.literal("LIVE")),
     dailyBias: v.union(v.literal("BULLISH"), v.literal("BEARISH"), v.literal("NEUTRAL")),
-    externalStructure: v.string(),
-    majorLiquidityPools: v.string(),
-    internalStructure: v.string(),
-    currentRange: v.string(),
-    minorPushStatus: v.string(),
+    externalStructure: v.optional(v.string()),
+    majorLiquidityPools: v.optional(v.string()),
+    internalStructure: v.optional(v.string()),
+    currentRange: v.optional(v.string()),
+    minorPushStatus: v.optional(v.string()),
     session: v.union(v.literal("ASIA"), v.literal("LONDON"), v.literal("NEW_YORK"), v.literal("OTHER")),
     isInKillzone: v.boolean(),
     poiType: v.union(v.literal("EXTREME"), v.literal("DECISIONAL")),
@@ -150,7 +150,16 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    return await ctx.db.insert("trades", { ...args, createdAt: now, updatedAt: now });
+    return await ctx.db.insert("trades", {
+      ...args,
+      externalStructure: args.externalStructure ?? "",
+      majorLiquidityPools: args.majorLiquidityPools ?? "",
+      internalStructure: args.internalStructure ?? "",
+      currentRange: args.currentRange ?? "",
+      minorPushStatus: args.minorPushStatus ?? "",
+      createdAt: now,
+      updatedAt: now,
+    });
   },
 });
 

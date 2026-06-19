@@ -109,7 +109,9 @@ export default function TodayPage() {
               <div className="grid grid-cols-3 gap-4">
                 <StatInline label="Worked" value={derived.tradesWorked} />
                 <StatInline label="Failed" value={derived.tradesFailed} />
-                <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+                {todayBias.overallDiscipline !== undefined && (
+                  <StatInline label="Discipline" value={`${todayBias.overallDiscipline}/10`} />
+                )}
               </div>
             </div>
           ) : (
