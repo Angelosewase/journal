@@ -466,13 +466,17 @@ export type DayReviewDerived = {
   tradesTaken: number;
   tradesWorked: number;
   tradesFailed: number;
-  overallDiscipline: number;
+  /** Computed from trade compliance; null when there are no trades to derive from. */
+  overallDiscipline: number | null;
 };
 
 export function deriveDayReviewFields(stats: ReviewStats): DayReviewDerived {
   const tradesTaken = stats.totalTrades;
   const tradesWorked = stats.winningTrades;
   const tradesFailed = stats.losingTrades;
+  if (stats.totalTrades === 0) {
+    return { tradesTaken, tradesWorked, tradesFailed, overallDiscipline: null };
+  }
   const complianceAvg =
     (stats.inducementPercentage +
       stats.ltcPercentage +

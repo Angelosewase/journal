@@ -574,7 +574,7 @@ export default function EveningReviewPage() {
         tradesFailed:             formData.tradesFailed ? Number(formData.tradesFailed) : derived.tradesFailed,
         followedPlan:             formData.followedPlan || undefined,
         planViolationExplanation: formData.planViolationExplanation,
-        overallDiscipline:        formData.overallDiscipline ? Number(formData.overallDiscipline) : derived.overallDiscipline,
+        overallDiscipline:        formData.overallDiscipline ? Number(formData.overallDiscipline) : (derived.overallDiscipline ?? undefined),
         tomorrowDirection:        formData.tomorrowDirection,
         tomorrowConfidence:       Number(formData.tomorrowConfidence),
         whatChanged:              formData.whatChanged,
@@ -697,7 +697,9 @@ export default function EveningReviewPage() {
                   <StatInline label="Trades" value={derived.tradesTaken} />
                   <StatInline label="Worked" value={derived.tradesWorked} />
                   <StatInline label="Failed" value={derived.tradesFailed} />
-                  <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+                  {derived.overallDiscipline !== null && (
+                    <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+                  )}
                 </div>
               </ContentCard>
 

@@ -148,7 +148,9 @@ export default function DayTimelinePage() {
             <StatInline label="Taken" value={derived.tradesTaken} />
             <StatInline label="Worked" value={derived.tradesWorked} />
             <StatInline label="Failed" value={derived.tradesFailed} />
-            <StatInline label="Discipline" value={`${derived.overallDiscipline}/10`} />
+            {dailyBias?.overallDiscipline !== undefined && (
+              <StatInline label="Discipline" value={`${dailyBias.overallDiscipline}/10`} />
+            )}
           </div>
           {dailyBias?.actualMovement && (
             <p className="mt-3 text-sm text-muted-foreground">
